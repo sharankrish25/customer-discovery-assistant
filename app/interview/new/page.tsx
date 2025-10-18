@@ -34,7 +34,7 @@ export default function NewInterviewPage() {
 
     try {
       // Find or create customer profile
-      let customer = getCustomerByName(formData.name);
+      const customer = getCustomerByName(formData.name);
       let customerId: string;
 
       if (!customer) {
@@ -73,7 +73,11 @@ export default function NewInterviewPage() {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId }),
+        body: JSON.stringify({
+          interviewId,
+          transcript: formData.transcript,
+          productIdea: formData.productIdea,
+        }),
       });
 
       const result = await response.json();

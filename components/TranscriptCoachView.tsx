@@ -99,7 +99,7 @@ export function TranscriptCoachView({ transcript, coaching }: TranscriptCoachVie
           <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No Coaching Analysis Yet</h3>
           <p className="text-sm text-muted-foreground text-center max-w-md">
-            Run "Analyze Interview Quality" to get feedback on your interview technique
+            Run &ldquo;Analyze Interview Quality&rdquo; to get feedback on your interview technique
             based on 4 customer discovery books.
           </p>
         </CardContent>
@@ -191,7 +191,7 @@ export function TranscriptCoachView({ transcript, coaching }: TranscriptCoachVie
                     <div>
                       <p className="text-sm font-medium mb-1">Example rewrite:</p>
                       <p className="text-sm italic text-muted-foreground">
-                        "{item.example_rewrite}"
+                        &ldquo;{item.example_rewrite}&rdquo;
                       </p>
                     </div>
                   </CardContent>

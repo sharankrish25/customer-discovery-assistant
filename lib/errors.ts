@@ -43,7 +43,7 @@ export class AIError extends Error {
  */
 export function normalizeAIError(e: unknown): AIError {
   // Extract message, truncate to prevent huge error logs
-  const rawMessage = e?.message || String(e);
+  const rawMessage = (e as { message?: string })?.message || String(e);
   const message = rawMessage.slice(0, 300);
 
   // Extract error code
@@ -51,12 +51,12 @@ export function normalizeAIError(e: unknown): AIError {
   let code: string | undefined;
 
   // HTTP status code (e.g., from Anthropic SDK or fetch errors)
-  if (e?.status) {
-    code = String(e.status);
+  if ((e as { status?: number })?.status) {
+    code = String((e as { status: number }).status);
   }
   // Custom error code property
-  else if (e?.code) {
-    code = String(e.code);
+  else if ((e as { code?: string })?.code) {
+    code = String((e as { code: string }).code);
   }
   // Generic AI error
   else {
@@ -73,7 +73,7 @@ export function normalizeAIError(e: unknown): AIError {
  * @returns True if error is a rate limit error
  */
 export function isRateLimitError(error: unknown): boolean {
-  return error?.status === 429 || error?.code === '429';
+  return (error as { status?: number })?.status === 429 || (error as { code?: string })?.code === '429';
 }
 
 /**
@@ -83,6 +83,6 @@ export function isRateLimitError(error: unknown): boolean {
  * @returns True if error is a server error
  */
 export function isServerError(error: unknown): boolean {
-  const status = error?.status || error?.code;
+  const status = (error as { status?: number })?.status || (error as { code?: number })?.code;
   return typeof status === 'number' && status >= 500 && status < 600;
 }

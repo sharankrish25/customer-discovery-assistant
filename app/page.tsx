@@ -5,15 +5,15 @@ import { FileText, Users, Lightbulb, Mail } from 'lucide-react';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-900 to-zinc-950">
+    <div className="min-h-screen bg-gradient-to-b from-neutral-800 to-neutral-900">
       <div className="container mx-auto px-4 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
             Customer Discovery Assistant
           </h1>
-          <p className="text-xl text-zinc-400 mb-8 max-w-2xl mx-auto">
-            AI-powered interview analysis to validate your product ideas with real customer insights
+          <p className="text-xl text-neutral-300 mb-8 max-w-2xl mx-auto">
+            AI-powered interview analysis to validate your product ideas with REAL customer insights
           </p>
           <div className="flex gap-4 justify-center">
             <Button asChild size="lg" className="bg-purple-600 hover:bg-purple-700">
@@ -27,41 +27,41 @@ export default function Home() {
 
         {/* Features Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          <Card className="bg-zinc-900 border-zinc-800">
+          <Card className="bg-neutral-800/50 border-neutral-700">
             <CardHeader>
-              <FileText className="w-8 h-8 text-purple-500 mb-2" />
-              <CardTitle className="text-white">Auto Analysis</CardTitle>
-              <CardDescription className="text-zinc-400">
+              <FileText className="w-8 h-8 text-purple-400 mb-2" />
+              <CardTitle className="text-neutral-50">Auto Analysis</CardTitle>
+              <CardDescription className="text-neutral-300">
                 Automatic summary, insights, and alignment analysis powered by Claude AI
               </CardDescription>
             </CardHeader>
           </Card>
 
-          <Card className="bg-zinc-900 border-zinc-800">
+          <Card className="bg-neutral-800/50 border-neutral-700">
             <CardHeader>
-              <Users className="w-8 h-8 text-purple-500 mb-2" />
-              <CardTitle className="text-white">Customer Profiles</CardTitle>
-              <CardDescription className="text-zinc-400">
+              <Users className="w-8 h-8 text-purple-400 mb-2" />
+              <CardTitle className="text-neutral-50">Customer Profiles</CardTitle>
+              <CardDescription className="text-neutral-300">
                 Organize interviews by customer with stakeholder tracking
               </CardDescription>
             </CardHeader>
           </Card>
 
-          <Card className="bg-zinc-900 border-zinc-800">
+          <Card className="bg-neutral-800/50 border-neutral-700">
             <CardHeader>
-              <Lightbulb className="w-8 h-8 text-purple-500 mb-2" />
-              <CardTitle className="text-white">Better Questions</CardTitle>
-              <CardDescription className="text-zinc-400">
+              <Lightbulb className="w-8 h-8 text-purple-400 mb-2" />
+              <CardTitle className="text-neutral-50">Better Questions</CardTitle>
+              <CardDescription className="text-neutral-300">
                 Generate follow-up questions based on The Mom Test principles
               </CardDescription>
             </CardHeader>
           </Card>
 
-          <Card className="bg-zinc-900 border-zinc-800">
+          <Card className="bg-neutral-800/50 border-neutral-700">
             <CardHeader>
-              <Mail className="w-8 h-8 text-purple-500 mb-2" />
-              <CardTitle className="text-white">Follow-up Emails</CardTitle>
-              <CardDescription className="text-zinc-400">
+              <Mail className="w-8 h-8 text-purple-400 mb-2" />
+              <CardTitle className="text-neutral-50">Follow-up Emails</CardTitle>
+              <CardDescription className="text-neutral-300">
                 Draft personalized follow-up emails referencing key insights
               </CardDescription>
             </CardHeader>

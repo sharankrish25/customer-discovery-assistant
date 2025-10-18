@@ -42,7 +42,7 @@ export default function DashboardPage() {
       result = result.filter((p) => {
         const nameMatch = p.name.toLowerCase().includes(query);
         const demoMatch = p.demographics?.toLowerCase().includes(query);
-        const typeMatch = p.stakeholderType.toLowerCase().includes(query);
+        const typeMatch = p.stakeholderType?.toLowerCase().includes(query);
         return nameMatch || demoMatch || typeMatch;
       });
     }

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { interviewId } = body;
+    const { interviewId, transcript, productIdea } = body;
 
     if (!interviewId || typeof interviewId !== 'string') {
       return NextResponse.json(
@@ -25,13 +25,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get interview from store
-    const interview = useStore.getState().getInterview(interviewId);
-
-    if (!interview) {
+    if (!transcript || typeof transcript !== 'string') {
       return NextResponse.json(
-        { ok: false, error: { code: "NOT_FOUND", message: "Interview not found" } },
-        { status: 404 }
+        { ok: false, error: { code: "VALIDATION_ERR", message: "transcript is required and must be a string" } },
+        { status: 400 }
+      );
+    }
+
+    if (!productIdea || typeof productIdea !== 'string') {
+      return NextResponse.json(
+        { ok: false, error: { code: "VALIDATION_ERR", message: "productIdea is required and must be a string" } },
+        { status: 400 }
       );
     }
 
@@ -43,8 +47,8 @@ export async function POST(request: NextRequest) {
     try {
       // Call auto-analysis with retry logic built-in
       const { summary, insights, alignment } = await runAutoAnalysis(
-        interview.transcript,
-        interview.productIdea
+        transcript,
+        productIdea
       );
 
       // Update interview with results

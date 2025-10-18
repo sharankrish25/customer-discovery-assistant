@@ -69,11 +69,13 @@ export function getKeyInsightSnippet(ir: InterviewRecord): string {
 }
 
 // Interview-specific storage (for backward compatibility with existing /interview/[id] page)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function saveInterview(id: string, data: any): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(`interview:${id}`, JSON.stringify(data));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getInterview(id: string): any | null {
   if (typeof window === "undefined") return null;
   try {

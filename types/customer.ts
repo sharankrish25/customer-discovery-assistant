@@ -1,7 +1,7 @@
 export interface CustomerProfile {
   id: string;
   name: string;
-  stakeholderType: string;
+  stakeholderType?: string;
   role?: string;
   demographics?: string;
   interviews: InterviewRecord[];

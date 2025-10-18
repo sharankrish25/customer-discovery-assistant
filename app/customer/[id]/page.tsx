@@ -176,7 +176,7 @@ export default function CustomerProfilePage() {
                             <p className="font-medium text-sm">{item.title}</p>
                             {item.quotes.length > 0 && (
                               <p className="text-sm text-muted-foreground mt-1 italic">
-                                "{item.quotes[0]}"
+                                &ldquo;{item.quotes[0]}&rdquo;
                               </p>
                             )}
                           </div>
