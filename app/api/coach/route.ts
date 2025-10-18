@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { useStore } from "@/lib/store";
-import { analyzeQuality } from "@/lib/agents-advanced";
-import { normalizeAIError, isRateLimitError } from "@/lib/errors";
+import { analyzeQuality } from "@/lib/coaching";
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse and validate request body
     let body;
     try {
       body = await request.json();
@@ -18,14 +16,14 @@ export async function POST(request: NextRequest) {
 
     const { interviewId, transcript } = body;
 
-    if (!interviewId || typeof interviewId !== 'string') {
+    if (!interviewId || typeof interviewId !== "string") {
       return NextResponse.json(
         { ok: false, error: { code: "VALIDATION_ERR", message: "interviewId is required and must be a string" } },
         { status: 400 }
       );
     }
 
-    if (!transcript || typeof transcript !== 'string') {
+    if (!transcript || typeof transcript !== "string") {
       return NextResponse.json(
         { ok: false, error: { code: "VALIDATION_ERR", message: "transcript is required and must be a string" } },
         { status: 400 }
@@ -33,44 +31,44 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Analyze interview quality with retry logic built-in
       const coaching = await analyzeQuality(transcript);
 
-      // Update interview with coaching results
       useStore.getState().updateInterview(interviewId, {
         coaching,
       });
 
-      return NextResponse.json({
-        ok: true,
-        data: { coaching },
-      }, { status: 200 });
+      return NextResponse.json(
+        {
+          ok: true,
+          data: { coaching },
+        },
+        { status: 200 }
+      );
     } catch (aiError) {
-      // Normalize AI error
-      const normalized = normalizeAIError(aiError);
-      const statusCode = isRateLimitError(normalized) ? 429 : 502;
+      console.error("Failed to analyze coaching quality:", aiError);
+      const message = aiError instanceof Error ? aiError.message : "Claude could not analyze the transcript";
 
       return NextResponse.json(
         {
           ok: false,
           error: {
-            code: normalized.code || "AI_ERR",
-            message: normalized.message,
+            code: "AI_ERR",
+            message,
           },
         },
-        { status: statusCode }
+        { status: 502 }
       );
     }
   } catch (error) {
     console.error("Coaching route error:", error);
-    const normalized = normalizeAIError(error);
+    const message = error instanceof Error ? error.message : "Failed to generate coaching feedback";
 
     return NextResponse.json(
       {
         ok: false,
         error: {
-          code: normalized.code || "SERVER_ERR",
-          message: "Failed to generate coaching feedback",
+          code: "SERVER_ERR",
+          message,
         },
       },
       { status: 500 }
