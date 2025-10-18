@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { useStore } from "@/lib/store";
 import { runAutoAnalysis } from "@/lib/agents";
 import { fetchInterviewForAnalysis, supabaseTranscriptFetcher } from "@/lib/interviews";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -126,11 +125,6 @@ export async function POST(request: NextRequest) {
         : "Alignment Highlights: No clear alignment signals detected.";
 
       const analysis = [summarySection, insightSection, alignmentSection].join("\n\n");
-
-      // Update interview with results
-      useStore.getState().updateInterview(interviewId, {
-        analysis,
-      });
 
       return NextResponse.json({
         ok: true,
