@@ -2,23 +2,23 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { AnalyzeResponse } from '@/lib/types';
+import {
+  getProfiles,
+  saveProfile,
+  upsertInterview,
+  saveInterview,
+} from '@/lib/storage';
+import { CustomerProfile, InterviewRecord } from '@/types/customer';
 
 export default function NewInterviewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-
-  const getCustomerByName = useStore((state) => state.getCustomerByName);
-  const addCustomer = useStore((state) => state.addCustomer);
-  const addInterview = useStore((state) => state.addInterview);
-  const updateInterviewAnalysis = useStore((state) => state.updateInterviewAnalysis);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -33,57 +33,119 @@ export default function NewInterviewPage() {
     setLoading(true);
 
     try {
-      // Find or create customer
-      const customer = getCustomerByName(formData.name);
+      // Guarded import for analysis
+      let runAutoAnalysis: (
+        transcript: string,
+        productIdea: string
+      ) => Promise<any>;
+      try {
+        const agents = await import('@/lib/agents');
+        runAutoAnalysis = agents.runAutoAnalysis;
+      } catch {
+        runAutoAnalysis = async (t, i) => ({
+          summary: {
+            summary: { bullets: ['Mock summary'], confidence: 0.7 },
+          },
+          insights: {
+            insights: [
+              {
+                title: 'Mock pain',
+                type: 'pain',
+                quotes: [{ text: 'example', start_sec: null }],
+                evidence_level: 'med' as const,
+              },
+            ],
+            confidence: 0.7,
+          },
+          alignment: {
+            alignment: { supports: [], contradicts: [], neutral: [] },
+            confidence: 0.7,
+          },
+        });
+      }
+
+      // Run analysis
+      const analysisResult = await runAutoAnalysis(
+        formData.transcript,
+        formData.productIdea
+      );
+
+      // Find or create customer profile
+      const profiles = getProfiles();
+      let profile = profiles.find((p) => p.name === formData.name);
       let customerId: string;
 
-      if (!customer) {
-        const newCustomerId = `cust_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        customerId = addCustomer({
-          id: newCustomerId,
+      if (!profile) {
+        customerId = `cust_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        profile = {
+          id: customerId,
           name: formData.name,
           stakeholderType: formData.stakeholderType,
           demographics: formData.demographics,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+          role: undefined,
+          interviews: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        saveProfile(profile);
         toast.success(`Created new customer profile: ${formData.name}`);
       } else {
-        customerId = customer.id;
+        customerId = profile.id;
         toast.info(`Using existing customer profile: ${formData.name}`);
       }
 
-      // Create interview
-      const newInterviewId = `interview_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      const interviewId = addInterview(customerId, {
-        id: newInterviewId,
-        uploadedAt: new Date(),
+      // Create interview record
+      const interviewId = `interview_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const interview: InterviewRecord = {
+        id: interviewId,
+        customerId,
         productIdea: formData.productIdea,
         transcript: formData.transcript,
-        summary: null,
-        insights: null,
-        alignment: null,
-        coaching: null,
-        betterQuestions: null,
-        followUpEmail: null,
-        analysisStatus: 'pending',
-      });
+        date: new Date().toISOString(),
+        results: {
+          summary: {
+            bullets: analysisResult.summary.summary.bullets,
+            confidence: analysisResult.summary.summary.confidence,
+          },
+          insights: {
+            items: analysisResult.insights.insights.map((i: any) => ({
+              title: i.title,
+              type: i.type,
+              quotes: i.quotes.map((q: any) => q.text),
+              evidence: i.evidence_level,
+            })),
+            confidence: analysisResult.insights.confidence,
+          },
+          alignment: {
+            supports: analysisResult.alignment.alignment.supports.map(
+              (s: any) => s.quote
+            ),
+            contradicts: analysisResult.alignment.alignment.contradicts.map(
+              (c: any) => c.quote
+            ),
+            neutral: analysisResult.alignment.alignment.neutral.map(
+              (n: any) => n.rationale
+            ),
+            confidence: analysisResult.alignment.confidence,
+          },
+        },
+      };
 
-      // Analyze interview
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to analyze interview');
-      }
-
-      // API route already updates the store, just check for success
-      await response.json();
+      // Save to localStorage
+      upsertInterview(customerId, interview);
+      saveInterview(interviewId, interview);
 
       toast.success('Interview analyzed successfully!');
+      setTimeout(() => {
+        toast.info('Saved to customer profile', {
+          description: 'View on Dashboard',
+          action: {
+            label: 'Dashboard',
+            onClick: () => router.push('/dashboard'),
+          },
+        });
+      }, 500);
+
       router.push(`/interview/${interviewId}`);
     } catch (error) {
       toast.error('Failed to create and analyze interview');

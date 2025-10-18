@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useStore } from '@/lib/store';
 import { Summary } from '@/components/Panels/Summary';
 import { Insights } from '@/components/Panels/Insights';
 import { Alignment } from '@/components/Panels/Alignment';
@@ -15,31 +14,41 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import type { SummaryOutput as SummaryOutputSimplified, InsightItem, AlignmentOutput as AlignmentOutputSimplified } from '@/lib/types';
 import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput } from '@/types/ai';
+import { getInterview, getProfile } from '@/lib/storage';
+import { InterviewRecord, CustomerProfile } from '@/types/customer';
 
 export default function InterviewDetailPage() {
   const params = useParams();
   const interviewId = params.id as string;
 
   const [activeTab, setActiveTab] = useState('transcript');
+  const [interviewData, setInterviewData] = useState<InterviewRecord | null>(null);
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  const interviewDetailed = useStore((state) => state.getInterviewById(interviewId));
-  const customer = useStore((state) =>
-    interviewDetailed ? state.getCustomerById(interviewDetailed.customerId) : undefined
-  );
+  useEffect(() => {
+    setMounted(true);
+    const interview = getInterview(interviewId);
+    setInterviewData(interview);
+    if (interview?.customerId) {
+      const profile = getProfile(interview.customerId);
+      setCustomer(profile);
+    }
+  }, [interviewId]);
 
-  // Update store when optional agents complete
+  // Optional agents handlers (currently disabled for storage-based version)
   const handleCoachingLoaded = (coaching: CoachingOutput) => {
-    useStore.getState().updateInterview(interviewId, { coaching });
+    // TODO: Save to localStorage when optional agents are enabled
     setActiveTab('coaching');
   };
 
   const handleQuestionsLoaded = (betterQuestions: BetterQuestionsOutput) => {
-    useStore.getState().updateInterview(interviewId, { betterQuestions });
+    // TODO: Save to localStorage when optional agents are enabled
     setActiveTab('questions');
   };
 
   const handleEmailLoaded = (followUpEmail: FollowUpEmailOutput) => {
-    useStore.getState().updateInterview(interviewId, { followUpEmail });
+    // TODO: Save to localStorage when optional agents are enabled
     setActiveTab('email');
   };
 
@@ -60,28 +69,30 @@ export default function InterviewDetailPage() {
     }
   };
 
-  // Convert to simplified types for UI components
-  const interview = interviewDetailed
+  // Convert InterviewRecord to format expected by UI components
+  const interview = interviewData
     ? {
-        ...interviewDetailed,
-        summary: interviewDetailed.summary
-          ? ({ bullets: interviewDetailed.summary.summary.bullets } as SummaryOutputSimplified)
-          : null,
-        insights: interviewDetailed.insights
-          ? (interviewDetailed.insights.insights.map((insight) => ({
-              insight: insight.title,
-              supportingQuote: insight.quotes[0]?.text || '',
-            })) as InsightItem[])
-          : null,
-        alignment: interviewDetailed.alignment
-          ? ({
-              supports: interviewDetailed.alignment.alignment.supports.map((s) => s.quote),
-              contradicts: interviewDetailed.alignment.alignment.contradicts.map((c) => c.quote),
-              neutral: interviewDetailed.alignment.alignment.neutral.map((n) => n.rationale),
-            } as AlignmentOutputSimplified)
-          : null,
+        id: interviewData.id,
+        customerId: interviewData.customerId,
+        productIdea: interviewData.productIdea,
+        transcript: interviewData.transcript,
+        uploadedAt: new Date(interviewData.date),
+        summary: ({ bullets: interviewData.results.summary.bullets } as SummaryOutputSimplified),
+        insights: (interviewData.results.insights.items.map((item) => ({
+          insight: item.title,
+          supportingQuote: item.quotes[0] || '',
+        })) as InsightItem[]),
+        alignment: ({
+          supports: interviewData.results.alignment.supports,
+          contradicts: interviewData.results.alignment.contradicts,
+          neutral: interviewData.results.alignment.neutral,
+        } as AlignmentOutputSimplified),
       }
     : null;
+
+  if (!mounted) {
+    return null;
+  }
 
   if (!interview) {
     return (
@@ -102,7 +113,7 @@ export default function InterviewDetailPage() {
       <div className="mb-8">
         <div className="mb-2 flex items-center gap-2">
           <Link
-            href={`/profile/${interview.customerId}`}
+            href={`/customer/${interview.customerId}`}
             className="text-sm text-muted-foreground hover:underline"
           >
             ← Back to {customer?.name || 'Customer Profile'}
@@ -133,9 +144,9 @@ export default function InterviewDetailPage() {
         <h2 className="mb-4 text-2xl font-semibold">Optional Actions</h2>
         <OptionalActions
           interviewId={interviewId}
-          hasCoaching={!!interviewDetailed?.coaching}
-          hasQuestions={!!interviewDetailed?.betterQuestions}
-          hasEmail={!!interviewDetailed?.followUpEmail}
+          hasCoaching={false}
+          hasQuestions={false}
+          hasEmail={false}
           onCoachingLoaded={handleCoachingLoaded}
           onQuestionsLoaded={handleQuestionsLoaded}
           onEmailLoaded={handleEmailLoaded}
@@ -163,17 +174,17 @@ export default function InterviewDetailPage() {
           <TabsContent value="coaching" className="mt-6">
             <TranscriptCoachView
               transcript={interview.transcript}
-              coaching={interviewDetailed?.coaching || null}
+              coaching={null}
             />
           </TabsContent>
 
           <TabsContent value="questions" className="mt-6">
-            <BetterQuestions data={interviewDetailed?.betterQuestions || null} />
+            <BetterQuestions data={null} />
           </TabsContent>
 
           <TabsContent value="email" className="mt-6">
             <FollowupEmail
-              data={interviewDetailed?.followUpEmail || null}
+              data={null}
               onRegenerate={handleEmailRegenerate}
             />
           </TabsContent>
