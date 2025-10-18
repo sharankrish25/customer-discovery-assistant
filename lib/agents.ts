@@ -399,8 +399,11 @@ export async function analyzeSummary(
   additionalMessages.push({
     role: 'user',
     content:
-      '[Output format]\n\nReturn JSON exactly matching {"summary":{"bullets":string[],"tone":"neutral","confidence":number}}. ' +
-      'Provide 3-8 bullet strings (one sentence each), keep tone "neutral", and set confidence between 0 and 1 without markdown code fences.',
+      '[Output format]\n\n' +
+      'Return JSON exactly matching {"summary":{"bullets":string[],"tone":"neutral","confidence":number}}. ' +
+      'Provide 3-8 bullets where EACH bullet is a detailed, comprehensive sentence that SYNTHESIZES multiple related statements from the transcript into a cohesive pattern. ' +
+      'Each bullet should combine 2-5 related sentences from the transcript and explain patterns with specific evidence (e.g., "exemplified by...", "making it difficult to..."). ' +
+      'Keep tone "neutral", set confidence between 0 and 1, and return pure JSON without markdown code fences.',
   });
 
   try {
