@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getServiceSupabaseClient, isSupabaseConfigured } from './supabase';
-import type { TranscriptFetcher } from './summary-service';
 
 interface InterviewRow {
   id: string;
@@ -23,10 +22,6 @@ function assertSupabaseClient(): SupabaseClient {
   return getServiceSupabaseClient();
 }
 
-/**
- * Fetches the persisted interview transcript and metadata required for AI analysis.
- * Throws user-friendly errors when the record is missing or incomplete.
- */
 export async function fetchInterviewForAnalysis(interviewId: string): Promise<InterviewAnalysisRecord> {
   if (!interviewId || typeof interviewId !== 'string') {
     throw new Error('interviewId must be a non-empty string.');
@@ -65,11 +60,3 @@ export async function fetchInterviewForAnalysis(interviewId: string): Promise<In
     customerId: data.customer_id ?? undefined,
   };
 }
-
-/**
- * Transcript fetcher compatible with the summary service helper.
- */
-export const supabaseTranscriptFetcher: TranscriptFetcher = async (interviewId: string) => {
-  const record = await fetchInterviewForAnalysis(interviewId);
-  return record.transcript;
-};
