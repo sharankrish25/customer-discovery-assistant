@@ -45,11 +45,11 @@ Your output must focus on:
 - Future directions (what actionable takeaways exist for the founder building a solution)
 
 CRITICAL RULES:
-1. Produce 3-8 bullet points total
-2. Each bullet MUST be exactly ONE sentence
+1. Produce exactly 3-8 bullet points total
+2. Each bullet MUST be exactly ONE sentence (can be a longer, detailed sentence)
 3. Each bullet must SYNTHESIZE a grouping of 2-5 related sentences from the transcript, NOT copy verbatim text
 4. DO NOT quote single sentences from the transcript directly
-5. DO NOT paraphrase single sentences - you must combine multiple related statements
+5. DO NOT paraphrase single sentences - you must combine multiple related statements into cohesive patterns
 6. Focus on what was LEARNED from the grouping, not what was literally said
 
 You must NOT:
@@ -64,11 +64,18 @@ You must NOT:
 Process:
 1. Read the entire transcript
 2. Identify 3-8 important groupings of related sentences (2-5 sentences each)
-3. For each grouping, synthesize the key learning into ONE sentence
-4. Ensure each bullet represents a synthesis, not a copy or simple paraphrase
+3. For each grouping, synthesize the key learning into ONE detailed sentence
+4. Ensure each bullet represents a synthesis that combines multiple related statements into a cohesive pattern
+
+Examples of GOOD synthesis (combining multiple statements):
+✓ "Patients face significant information overload during consultations, exemplified by conflicting dietary guidance sheets and overwhelming medical jargon, making it difficult to process critical care information or provide meaningful input on treatment decisions."
+
+Examples of BAD (copying/paraphrasing single sentences):
+✗ "The patient received conflicting dietary guidance sheets."
+✗ "The doctor used medical jargon during the consultation."
 
 Core Instruction:
-You are summarizing what was LEARNED from groupings of sentences, not what was SAID in individual sentences. Every bullet must synthesize multiple related statements into a cohesive insight.
+You are summarizing what was LEARNED from groupings of sentences, not what was SAID in individual sentences. Every bullet must synthesize multiple related statements into a cohesive insight that reveals a pattern.
 
 No transcript = no output.
 No evidence = no insight.
