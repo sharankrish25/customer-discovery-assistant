@@ -9,8 +9,8 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
-            Customer Discovery Assistant
+          <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
+            Reflect
           </h1>
           <p className="text-xl text-neutral-300 mb-8 max-w-2xl mx-auto">
             AI-powered interview analysis to validate your product ideas with REAL customer insights
@@ -52,7 +52,7 @@ export default function Home() {
               <Lightbulb className="w-8 h-8 text-purple-400 mb-2" />
               <CardTitle className="text-neutral-50">Better Questions</CardTitle>
               <CardDescription className="text-neutral-300">
-                Generate follow-up questions based on The Mom Test principles
+                Generate follow-up questions based on proven customer discovery techniques
               </CardDescription>
             </CardHeader>
           </Card>

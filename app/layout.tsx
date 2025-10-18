@@ -18,7 +18,7 @@ const crimsonText = Crimson_Text({
 });
 
 export const metadata: Metadata = {
-  title: "Customer Discovery Assistant",
+  title: "Reflect",
   description: "AI-powered customer interview analysis tool for early-stage founders",
 };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Summary } from '@/components/Panels/Summary';
@@ -14,27 +14,19 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import type { SummaryOutput as SummaryOutputSimplified, InsightItem, AlignmentOutput as AlignmentOutputSimplified } from '@/lib/types';
 import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput } from '@/types/ai';
-import { getInterview, getProfile } from '@/lib/storage';
-import { InterviewRecord, CustomerProfile } from '@/types/customer';
+import { useStore } from '@/lib/store';
 
 export default function InterviewDetailPage() {
   const params = useParams();
   const interviewId = params.id as string;
 
   const [activeTab, setActiveTab] = useState('transcript');
-  const [interviewData, setInterviewData] = useState<InterviewRecord | null>(null);
-  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-    const interview = getInterview(interviewId);
-    setInterviewData(interview);
-    if (interview?.customerId) {
-      const profile = getProfile(interview.customerId);
-      setCustomer(profile);
-    }
-  }, [interviewId]);
+  // Get interview and customer from Zustand store
+  const interviewData = useStore((state) => state.getInterview(interviewId));
+  const customer = useStore((state) =>
+    interviewData ? state.getCustomerById(interviewData.customerId) : null
+  );
 
   // Optional agents handlers (currently disabled for storage-based version)
   const handleCoachingLoaded = (coaching: CoachingOutput) => {
@@ -69,30 +61,26 @@ export default function InterviewDetailPage() {
     }
   };
 
-  // Convert InterviewRecord to format expected by UI components
-  const interview = interviewData
+  // Convert Interview to format expected by UI components
+  const interview = interviewData && interviewData.summary && interviewData.insights && interviewData.alignment
     ? {
         id: interviewData.id,
         customerId: interviewData.customerId,
         productIdea: interviewData.productIdea,
         transcript: interviewData.transcript,
-        uploadedAt: new Date(interviewData.date),
-        summary: ({ bullets: interviewData.results.summary.bullets } as SummaryOutputSimplified),
-        insights: (interviewData.results.insights.items.map((item) => ({
+        uploadedAt: interviewData.uploadedAt,
+        summary: ({ bullets: interviewData.summary.summary.bullets } as SummaryOutputSimplified),
+        insights: (interviewData.insights.insights.map((item) => ({
           insight: item.title,
-          supportingQuote: item.quotes[0] || '',
+          supportingQuote: item.quotes[0]?.text || '',
         })) as InsightItem[]),
         alignment: ({
-          supports: interviewData.results.alignment.supports,
-          contradicts: interviewData.results.alignment.contradicts,
-          neutral: interviewData.results.alignment.neutral,
+          supports: interviewData.alignment.alignment.supports.map(s => s.insight_title),
+          contradicts: interviewData.alignment.alignment.contradicts.map(c => c.insight_title),
+          neutral: interviewData.alignment.alignment.neutral.map(n => n.insight_title),
         } as AlignmentOutputSimplified),
       }
     : null;
-
-  if (!mounted) {
-    return null;
-  }
 
   if (!interview) {
     return (

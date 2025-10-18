@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -15,31 +15,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Timeline } from '@/components/Timeline';
-import { getProfile, getLastInterviewDate } from '@/lib/storage';
-import { CustomerProfile, InterviewRecord } from '@/types/customer';
+import { useStore } from '@/lib/store';
 import { toast } from 'sonner';
 
 export default function CustomerProfilePage() {
   const params = useParams();
   const customerId = params.id as string;
-  const [profile, setProfile] = useState<CustomerProfile | null>(null);
-  const [selectedInterviewId, setSelectedInterviewId] = useState<string>('');
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-    const p = getProfile(customerId);
-    setProfile(p);
-    if (p && p.interviews.length > 0) {
-      setSelectedInterviewId(p.interviews[0].id);
-    }
-  }, [customerId]);
+  // Get profile from Zustand store
+  const zustandProfile = useStore((state) => state.getCustomerById(customerId));
+  const [selectedInterviewId, setSelectedInterviewId] = useState<string>(
+    zustandProfile?.interviews[0]?.id || ''
+  );
 
-  if (!mounted) {
-    return null;
-  }
-
-  if (!profile) {
+  if (!zustandProfile) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="rounded-lg border border-dashed p-8 text-center">
@@ -55,7 +44,46 @@ export default function CustomerProfilePage() {
     );
   }
 
-  const lastDate = getLastInterviewDate(profile);
+  // Convert Zustand profile to expected format
+  const profile = {
+    ...zustandProfile,
+    role: zustandProfile.stakeholderType,
+    createdAt: zustandProfile.createdAt.toISOString(),
+    updatedAt: zustandProfile.updatedAt.toISOString(),
+    interviews: zustandProfile.interviews.map(interview => ({
+      id: interview.id,
+      customerId: interview.customerId,
+      productIdea: interview.productIdea,
+      transcript: interview.transcript,
+      date: interview.uploadedAt.toISOString(),
+      results: {
+        summary: {
+          bullets: interview.summary?.summary.bullets || [],
+          confidence: interview.summary?.summary.confidence,
+        },
+        insights: {
+          items: interview.insights?.insights.map(i => ({
+            title: i.title,
+            type: i.type,
+            quotes: i.quotes.map(q => q.text),
+            evidence: i.evidence_level,
+          })) || [],
+          confidence: interview.insights?.confidence,
+        },
+        alignment: {
+          supports: interview.alignment?.alignment.supports.map(s => s.insight_title) || [],
+          contradicts: interview.alignment?.alignment.contradicts.map(c => c.insight_title) || [],
+          neutral: interview.alignment?.alignment.neutral.map(n => n.insight_title) || [],
+          confidence: 0,
+        },
+      },
+    })),
+  };
+
+  const lastDate = profile.interviews.length > 0
+    ? profile.interviews.map(i => new Date(i.date)).sort((a, b) => b.getTime() - a.getTime())[0].toISOString()
+    : null;
+
   const selectedInterview = profile.interviews.find(
     (i) => i.id === selectedInterviewId
   );

@@ -5,8 +5,8 @@ export function Navbar() {
     <nav className="border-b bg-background">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-xl font-semibold">
-            Customer Discovery Assistant
+          <Link href="/" className="text-2xl font-serif tracking-tight" style={{ fontFamily: 'var(--font-crimson), Georgia, serif' }}>
+            Reflect
           </Link>
           <div className="flex gap-6">
             <Link
