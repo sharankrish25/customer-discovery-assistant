@@ -44,6 +44,7 @@ interface ClaudeCallOptions {
   temperature?: number;
   thinking?: boolean;
   thinkingBudget?: number;
+  enforceJson?: boolean; // If true, adds strict JSON-only instructions to system prompt
 }
 
 function resolveThinkingBudget(maxTokens: number, requested?: number): number {
@@ -73,8 +74,24 @@ export async function callClaude(
   });
 
   // Truncate inputs to prevent token limit issues
-  const truncatedSystem = truncateForLLM(system, 8000);
+  let truncatedSystem = truncateForLLM(system, 8000);
   const truncatedUser = truncateForLLM(user, 12000);
+
+  // Add strict JSON-only enforcement if requested
+  if (options.enforceJson) {
+    truncatedSystem = `${truncatedSystem}
+
+CRITICAL JSON-ONLY OUTPUT REQUIREMENT:
+You MUST return ONLY a single valid JSON object or array.
+- NO markdown headings (e.g., "# EXTRACTED INSIGHTS")
+- NO code fences (\`\`\`json or \`\`\`)
+- NO explanatory text before or after the JSON
+- NO comments within the JSON
+- Start your response directly with { or [
+- End your response directly with } or ]
+If a field expects an array and you have no items, return an empty array [].
+If a field expects a string and you have nothing, return an empty string "".`;
+  }
 
   // Generate unique request ID for debugging
   const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;

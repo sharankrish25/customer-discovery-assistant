@@ -501,10 +501,12 @@ export async function analyzeQuality(transcript: string): Promise<CoachingOutput
   const user = `TRANSCRIPT:
 ${truncatedTranscript}
 
-TASK: Return JSON per schema. Limit highlights to 20 max.`;
+TASK: Return JSON per schema. Limit highlights to 20 max.
+
+CRITICAL: Return ONLY valid JSON - no markdown headers, no code fences, no explanatory text. Start with { and end with }.`;
 
   try {
-    const response = await callClaude(SONNET_MODEL, system, user, SONNET_CONFIG);
+    const response = await callClaude(SONNET_MODEL, system, user, { ...SONNET_CONFIG, enforceJson: true });
     const parsed = extractJson(response);
     return CoachingSchema.parse(parsed);
   } catch (error) {
@@ -686,10 +688,12 @@ ${JSON.stringify(alignment, null, 2)}
 OPTIONAL_COACHING_GAPS:
 ${coachingGaps}
 
-TASK: Generate 3-12 past-behavior questions that address the above criteria. Return JSON matching schema.`;
+TASK: Generate 3-12 past-behavior questions that address the above criteria. Return JSON matching schema.
+
+CRITICAL: Return ONLY valid JSON - no markdown headers, no code fences, no explanatory text. Start with { and end with }.`;
 
   try {
-    const response = await callClaude(HAIKU_MODEL, system, user, HAIKU_CONFIG);
+    const response = await callClaude(HAIKU_MODEL, system, user, { ...HAIKU_CONFIG, enforceJson: true });
     const parsed = extractJson(response);
     return BetterQuestionsSchema.parse(parsed);
   } catch (error) {
@@ -767,10 +771,12 @@ LENGTH: ${length}
 INCLUDE_PLACEHOLDERS: ${includePlaceholders}
 TODAY: ${today}
 
-Return JSON with keys subject, body, and raw_markdown (markdown version of the same email). Do not return extra keys.`;
+Return JSON with keys subject, body, and raw_markdown (markdown version of the same email). Do not return extra keys.
+
+CRITICAL: Return ONLY valid JSON - no markdown headers, no code fences, no explanatory text. Start with { and end with }.`;
 
   try {
-    const response = await callClaude(SONNET_MODEL, system, user, SONNET_CONFIG);
+    const response = await callClaude(SONNET_MODEL, system, user, { ...SONNET_CONFIG, enforceJson: true });
     const parsed = extractJson(response);
     return FollowupSchema.parse(parsed);
   } catch (error) {

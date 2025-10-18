@@ -516,7 +516,7 @@ Categories:
 IMPORTANT: Your response must be ONLY the JSON object. Do not include any markdown headers, explanations, code fences, or commentary. Start your response with { and end with }. No other text before or after the JSON.`;
 
   try {
-    const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
+    const response = await callClaude(MODEL, system, user, { ...AGENT_CONFIG, enforceJson: true });
     const parsed = parseJsonSafely(response);
     const result = InsightsSchema.parse(parsed);
 
@@ -665,7 +665,7 @@ Classification:
 IMPORTANT: Your response must be ONLY the JSON object. Do not include any markdown headers, explanations, code fences, or commentary. Start your response with { and end with }. No other text before or after the JSON.`;
 
   try {
-    const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
+    const response = await callClaude(MODEL, system, user, { ...AGENT_CONFIG, enforceJson: true });
     const parsed = parseJsonSafely(response);
     return AlignmentSchema.parse(parsed);
   } catch (error) {
