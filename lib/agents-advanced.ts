@@ -173,19 +173,23 @@ TASK: Return JSON per schema. Limit highlights to 20 max.`;
 }
 
 /**
- * Generates better follow-up questions based on alignment analysis and coaching gaps.
+ * Generates better follow-up questions based on transcript, product vision, alignment analysis and coaching gaps.
  * Uses Claude Haiku 3.5 for fast generation.
  *
+ * @param transcript - The full interview transcript
+ * @param productIdea - The product vision being tested
  * @param alignment - Alignment analysis from the auto-analysis pipeline
  * @param coaching - Optional coaching output to identify gaps
  * @returns Better questions output with 3-12 questions
  *
  * @example
- * const questions = await generateQuestions(alignment, coaching);
+ * const questions = await generateQuestions(transcript, productIdea, alignment, coaching);
  * console.log(questions.questions.length); // 3-12 questions
  * console.log(questions.questions[0].why); // "TH: story depth" | "LCD: frequency/workflow/alternative" | "TMT: past-behavior"
  */
 export async function generateQuestions(
+  transcript: string,
+  productIdea: string,
   alignment: AlignmentOutput,
   coaching: CoachingOutput | null
 ): Promise<BetterQuestionsOutput> {
@@ -199,20 +203,44 @@ export async function generateQuestions(
 - Talking to Humans (stories)
 - The Mom Test (avoid hypotheticals/pitch; anchor past)
 - Lean Customer Development (frequency, workflow, alternatives, willingness/constraints)
+
+You will receive:
+1. The interview transcript (what was actually discussed)
+2. The product vision being tested (what the founder is building)
+3. Alignment analysis (which insights support/contradict/are neutral to the vision)
+4. Optional coaching gaps (interview quality issues)
+
+Use ALL of this context to generate specific, actionable questions that:
+- Build on what was already discussed in the transcript
+- Test the product vision more rigorously
+- Address gaps in the conversation
+- Fix interview quality issues identified by coaching
+
 Return JSON only, no prose, no code fences.
 {questions:[{text, linked_to, why (TH/LCD/TMT labels), style:"past-behavior"}]}`;
 
+  const truncatedTranscript = truncateForLLM(transcript, 3000);
   const coachingGaps = coaching
     ? coaching.advice.map(a => `${a.book}: ${a.what_to_improve}`).join('\n')
     : 'No coaching gaps provided.';
 
-  const user = `ALIGNMENT_JSON:
+  const user = `TRANSCRIPT:
+${truncatedTranscript}
+
+PRODUCT_VISION:
+${productIdea}
+
+ALIGNMENT_JSON:
 ${JSON.stringify(alignment, null, 2)}
 
 OPTIONAL_COACHING_GAPS:
 ${coachingGaps}
 
-TASK: Generate 3-12 past-behavior questions that dig deeper into insights or address coaching gaps. Return JSON matching schema.`;
+TASK: Generate 3-12 past-behavior questions that:
+1. Build on the actual conversation in the transcript
+2. Test the product vision more rigorously
+3. Address gaps or improve interview quality
+Return JSON matching schema.`;
 
   try {
     const response = await callClaude(HAIKU_MODEL, system, user, HAIKU_CONFIG);

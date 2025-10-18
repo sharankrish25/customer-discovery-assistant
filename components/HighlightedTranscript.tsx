@@ -84,8 +84,7 @@ export function HighlightedTranscript({ transcript, insights }: HighlightedTrans
       return <pre className="whitespace-pre-wrap font-sans text-sm">{transcript}</pre>;
     }
 
-    const segments: JSX.Element[] = [];
-    let lastIndex = 0;
+    const segments: React.ReactElement[] = [];
 
     // Process each character position to handle overlapping highlights
     const charColors: { color: string; tooltip: string }[] = new Array(transcript.length).fill(null);

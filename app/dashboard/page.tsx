@@ -14,19 +14,12 @@ import {
 import { CustomerCard } from '@/components/CustomerCard';
 import { NoCustomers } from '@/components/EmptyStates/NoCustomers';
 import { useStore } from '@/lib/store';
-import { toast } from 'sonner';
 
 export default function DashboardPage() {
   const customers = useStore((state) => state.customers);
-  const seedMock = useStore((state) => state.seedMock);
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
-
-  const handleSeedDemo = () => {
-    seedMock();
-    toast.success('Demo data loaded!');
-  };
 
   // Get unique stakeholder types from existing customers
   const stakeholderTypes = useMemo(() => {
@@ -81,16 +74,9 @@ export default function DashboardPage() {
             </Button>
             <h1 className="text-3xl font-bold">Dashboard</h1>
           </div>
-          <div className="flex gap-2">
-            {customers.length === 0 && (
-              <Button onClick={handleSeedDemo} variant="outline">
-                Load Demo Data
-              </Button>
-            )}
-            <Button asChild>
-              <Link href="/interview/new">New Interview</Link>
-            </Button>
-          </div>
+          <Button asChild>
+            <Link href="/interview/new">New Interview</Link>
+          </Button>
         </div>
 
         {customers.length > 0 && (

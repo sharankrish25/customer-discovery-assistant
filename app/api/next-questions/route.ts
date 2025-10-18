@@ -16,11 +16,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { interviewId, alignment, coaching } = body;
+    const { interviewId, transcript, productIdea, alignment, coaching } = body;
 
     if (!interviewId || typeof interviewId !== 'string') {
       return NextResponse.json(
         { ok: false, error: { code: "VALIDATION_ERR", message: "interviewId is required and must be a string" } },
+        { status: 400 }
+      );
+    }
+
+    if (!transcript || typeof transcript !== 'string') {
+      return NextResponse.json(
+        { ok: false, error: { code: "VALIDATION_ERR", message: "transcript is required and must be a string" } },
+        { status: 400 }
+      );
+    }
+
+    if (!productIdea || typeof productIdea !== 'string') {
+      return NextResponse.json(
+        { ok: false, error: { code: "VALIDATION_ERR", message: "productIdea is required and must be a string" } },
         { status: 400 }
       );
     }
@@ -35,6 +49,8 @@ export async function POST(request: NextRequest) {
     try {
       // Generate better questions with retry logic built-in
       const betterQuestions = await generateQuestions(
+        transcript,
+        productIdea,
         alignment,
         coaching || null
       );
