@@ -96,7 +96,7 @@ function clampConfidence(confidence: number, transcript: string): number {
 // Constants
 // ============================================================================
 
-const MODEL = 'claude-3-5-sonnet-20241022';
+const MODEL = 'claude-3-5-sonnet-20240620';
 const AGENT_CONFIG = {
   maxTokens: 4096,
   temperature: 0.2,
