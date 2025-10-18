@@ -6,7 +6,7 @@ export interface SummaryOutput {
   };
 }
 
-export type InsightType = "pain" | "need" | "motivation";
+export type InsightType = "existing_process" | "motivation" | "unmet_need" | "pain_magnitude" | "past_attempt";
 
 export interface InsightsOutput {
   insights: {
@@ -16,6 +16,7 @@ export interface InsightsOutput {
       text: string;
       start_sec: number | null;
     }[];
+    why_it_matters: string;
     evidence_level: "low" | "med" | "high";
   }[];
   confidence: number;
@@ -84,8 +85,8 @@ export interface CoachingOutput {
 export interface BetterQuestion {
   text: string;
   linked_to: string; // insight_title | gap
-  why: "TH: story depth" | "LCD: frequency/workflow/alternative" | "TMT: past-behavior";
-  style: "past-behavior";
+  why: string; // Accept any string for flexibility
+  style: string; // Accept any string for flexibility
 }
 
 export interface BetterQuestionsOutput {
@@ -94,5 +95,6 @@ export interface BetterQuestionsOutput {
 
 export interface FollowUpEmailOutput {
   subject: string;
-  body: string; // <=120 words target
+  body: string;
+  raw_markdown?: string; // Markdown version of the email
 }

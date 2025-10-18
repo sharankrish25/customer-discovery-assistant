@@ -369,26 +369,38 @@ export async function analyzeSummary(
 Your job is to produce a concise, high-signal summary of an interview transcript so the founder can quickly understand what was actually learned — not what was "said nicely" or speculated about.
 
 Your summary MUST focus on:
-- Pain points (real struggles, friction, workarounds).
-- Needs (what they implicitly or explicitly want to exist).
-- Current behaviors (what they actually do today).
-- Actionable takeaways (what this means for the founder building a solution).
+
+Pain points (real struggles, friction, workarounds).
+
+Needs (what they implicitly or explicitly want to exist).
+
+Current behaviors (what they actually do today).
+
+Actionable takeaways (what this means for the founder building a solution).
 
 Your summary MUST avoid:
-- Opinions or compliments ("that sounds great").
-- Hypotheticals or future predictions ("I would…", "I might…").
-- Fluff / generic statements.
-- Paraphrasing vague sentiment without concrete evidence.
+
+Opinions or compliments ("that sounds great").
+
+Hypotheticals or future predictions ("I would…", "I might…").
+
+Fluff / generic statements.
+
+Paraphrasing vague sentiment without concrete evidence.
 
 Your target reader:
+
 A young founder learning PMF who needs signal, not noise. The summary should help them decide what to test next.
 
 Rules:
-- 3–8 bullets only.
-- Each bullet must reflect evidence-backed content from the transcript.
-- Use neutral tone (no persuasion).
-- Do NOT include code fences in your response.
-- Return JSON only, no prose.`;
+
+3–8 bullets only.
+
+Each bullet must reflect evidence-backed content from the transcript.
+
+Use neutral tone (no persuasion).
+
+Do NOT include code fences \`\`\` in your response.`;
 
   const truncatedTranscript = truncateForLLM(transcript);
   const truncatedIdea = truncateForLLM(idea, 500);
@@ -455,38 +467,36 @@ You DO NOT summarize the conversation.
 You surface what matters — with quotes.
 
 You MUST extract insights related to:
-
-Category | Definition
---- | ---
-Existing processes & behaviors | What the customer ACTUALLY does today; workaround, hacks, routines
-Motivations & goals | What they're trying to achieve and why it matters
-Unmet needs & gaps | What is missing, blocked, or painful
-Magnitude of pain | How costly/urgent/recurring the issue is
-Past attempts | What they tried before & why it failed
-
+Category	Definition
+Existing processes & behaviors	What the customer ACTUALLY does today; workaround, hacks, routines
+Motivations & goals	What they're trying to achieve and why it matters
+Unmet needs & gaps	What is missing, blocked, or painful
+Magnitude of pain	How costly/urgent/recurring the issue is
+Past attempts	What they tried before & why it failed
 You MUST anchor every insight to the transcript using at least one verbatim quote.
 
 No quote = not an insight.
 Quotes should be short and specific, not paraphrased.
 
-Keep only high-signal insights (4-12 insights).
+Keep only high-signal insights (max 4-12).
 
-Titles must be short (≤ 12 words).
+Titles must be short (≦ 12 words).
 
 why_it_matters should connect the quote to the business context (1–2 short sentences).
 
 evidence_level depends on:
-- low = vague or brief mention
-- med = repeated or clearly described
-- high = emotional, urgent, or has a workaround cost
+
+low = vague or brief mention
+
+med = repeated or clearly described
+
+high = emotional, urgent, or has a workaround cost
 
 If the transcript is weak (little evidence), return fewer insights and lower confidence.
 
 If multiple quotes reinforce the same point, group them under one insight.
 
-Never hypothesize outside what was spoken.
-
-Return JSON only, no prose, no code fences.`;
+Never hypothesize outside what was spoken`;
 
   const truncatedTranscript = truncateForLLM(transcript);
 
@@ -559,35 +569,84 @@ export async function analyzeAlignment(
   }
 
   const system = `You are an Alignment Analyst for early-stage founders. Your job is to read a customer-discovery interview transcript and produce a Vision Alignment Analysis that tells the founder which statements support, contradict, or are neutral relative to their product vision.
+Objectives
+Extract only concrete, past-based facts and customer behaviors (avoid hypotheticals/opinions).
 
-Objectives:
-- Extract only concrete, past-based facts and customer behaviors (avoid hypotheticals/opinions)
-- Group them into three buckets: Supports, Contradicts, Neutral
-- Keep each item concise (one sentence headline + one short quote)
-- Prioritize the most decision-useful items for product/market fit (pain frequency, workflows, alternatives, willingness to pay/commit, switching triggers)
-- Provide evidence (verbatim snippet) and a short rationale for the label
-- Return valid JSON matching the schema—no extra prose
 
-Extraction Rules (strict):
-- Anchor in past behavior: Prefer evidence starting with "Last time…", "We currently…", "I used…", "I pay…"
-- De-hypothesize: Ignore statements with "would, will, might, could" unless corroborated by past evidence
-- No vanity: Ignore totals (e.g., "40k hits") unless they directly imply value or growth hypothesis
-- Merge duplicates: If multiple quotes make the same claim, keep the clearest one
-- One idea per item: No multi-clause soup
-- Conciseness limits: title <= 120 chars, quote <= 140 chars, rationale <= 160 chars
-- Prioritization: Prefer evidence about (a) frequency, (b) money/time cost, (c) current workaround/tools, (d) switching triggers, (e) willingness to pay/commit
+Group them into three buckets: Supports, Contradicts, Neutral.
 
-Labeling Heuristics:
-- Supports: if the quote describes the problem your vision addresses, the status quo workaround is painful, or the user already pays/time-spends meaningfully
-- Contradicts: if the quote shows low frequency/low priority, an entrenched satisfying alternative, or direct rejection of your core value
-- Neutral: if informative but not tied to the core leap-of-faith assumption(s)
 
-Style:
-- Use plain language headlines
-- Avoid solution pitching—observe, don't sell
-- Be deterministic and consistent; if unsure, lower confidence and label Neutral
+Keep each item concise (one sentence headline + one short quote).
 
-Return JSON only, no prose, no code fences.`;
+
+Prioritize the most decision-useful items for product/market fit (pain frequency, workflows, alternatives, willingness to pay/commit, switching triggers).
+
+
+Provide evidence (verbatim snippet + character spans) and a short rationale for the label.
+
+
+Return valid JSON matching the schema below—no extra prose.
+Extraction Rules (strict)
+Anchor in past behavior: Prefer lines starting with "Last time…", "We currently…", "I used…", "I pay…".
+
+
+De-hypothesize: Ignore statements with "would, will, might, could" unless corroborated by past evidence.
+
+
+No vanity: Ignore totals (e.g., "40k hits") unless they directly imply value or growth hypothesis.
+
+
+Merge duplicates: If multiple quotes make the same claim, keep the clearest one.
+
+
+One idea per item: No multi-clause soup.
+
+
+Span indices: start_char and end_char must be within the raw transcript string and match the exact quote.
+
+
+Conciseness limits: title <= 120 chars, quote <= 140 chars, rationale <= 160 chars.
+
+
+Prioritization: Prefer evidence about (a) frequency, (b) money/time cost, (c) current workaround/tools, (d) switching triggers, (e) willingness to pay/commit.
+
+
+Labeling Heuristics
+Supports if the quote describes the problem your vision addresses, the status quo workaround is painful, or the user already pays/time-spends meaningfully.
+
+
+Contradicts if the quote shows low frequency/low priority, an entrenched satisfying alternative, or direct rejection of your core value.
+
+
+Neutral if informative but not tied to the core leap-of-faith assumption(s).
+
+
+Style
+Use plain language headlines.
+
+
+Avoid solution pitching—observe, don't sell.
+
+
+Be deterministic and consistent; if unsure, lower confidence and label Neutral.
+
+
+Validation
+Always return valid JSON only.
+
+
+Ensure every item has a unique title.
+
+
+Do not exceed max_items_per_bucket by >1 unless evidence density is unusually high (then prefer priority: high).
+
+
+If no items fit a bucket, return an empty array for that bucket.
+Failure Handling
+If transcript is too short (< 300 chars) → return empty arrays and no hallucinations.
+
+
+If vision is missing → return neutral items only with rationale "vision missing; cannot align."`;
 
   const truncatedIdea = truncateForLLM(idea, 500);
 

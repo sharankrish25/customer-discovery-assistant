@@ -31,5 +31,6 @@ export const BetterQuestionsSchema = z.object({
 
 export const FollowupSchema = z.object({
   subject: z.string().min(3).max(120),
-  body: z.string().min(20).max(1000)
+  body: z.string().min(20).max(1000),
+  raw_markdown: z.string().optional() // Markdown version of the email
 });

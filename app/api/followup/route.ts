@@ -3,6 +3,24 @@ import { useStore } from "@/lib/store";
 import { generateEmail } from "@/lib/agents-advanced";
 import { normalizeAIError, isRateLimitError } from "@/lib/errors";
 
+/**
+ * POST /api/followup
+ *
+ * Generates a follow-up email based on free-form specifications.
+ *
+ * Request body:
+ * {
+ *   "specifications": "ask to set up interview in 3 weeks, clarify insight #3",
+ *   "interviewId": "interview-123",
+ *   "customerName": "Sarah Chen",
+ *   "customerRole": "Product Manager",
+ *   "priorSummary": "Discussed feedback consolidation pain points",
+ *   "insights": ["Manual process takes 3-4 hours", "Using spreadsheets"],
+ *   "tone": "professional", // optional: "professional" | "friendly" | "casual"
+ *   "length": "medium", // optional: "short" | "medium" | "long"
+ *   "includePlaceholders": false // optional
+ * }
+ */
 export async function POST(request: NextRequest) {
   try {
     // Parse and validate request body
@@ -16,69 +34,96 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { interviewId, desiredCommitment, chosenInsightTitle, insights, customerName } = body;
+    const {
+      specifications,
+      interviewId,
+      customerName,
+      customerRole,
+      priorSummary,
+      insights,
+      tone,
+      length,
+      includePlaceholders,
+    } = body;
 
-    if (!interviewId || typeof interviewId !== 'string') {
+    // Validate specifications
+    if (!specifications || typeof specifications !== 'string') {
       return NextResponse.json(
-        { ok: false, error: { code: "VALIDATION_ERR", message: "interviewId is required and must be a string" } },
+        {
+          ok: false,
+          error: {
+            code: "VALIDATION_ERR",
+            message: "specifications is required and must be a string",
+            hint: "Provide free-form specifications like 'ask to set up interview in 3 weeks'"
+          }
+        },
         { status: 400 }
       );
     }
 
-    if (!insights) {
+    if (specifications.trim().length === 0) {
       return NextResponse.json(
-        { ok: false, error: { code: "PREREQUISITE_MISSING", message: "Interview must be analyzed first (insights required)" } },
+        {
+          ok: false,
+          error: {
+            code: "VALIDATION_ERR",
+            message: "specifications cannot be empty",
+            hint: "Describe what you want in the follow-up email"
+          }
+        },
         { status: 400 }
       );
     }
 
-    if (!customerName) {
+    if (specifications.length > 2500) {
       return NextResponse.json(
-        { ok: false, error: { code: "VALIDATION_ERR", message: "customerName is required" } },
-        { status: 400 }
+        {
+          ok: false,
+          error: {
+            code: "VALIDATION_ERR",
+            message: "specifications exceeds maximum length of 2,500 characters",
+            hint: "Please shorten your specifications"
+          }
+        },
+        { status: 413 }
       );
     }
 
-    // Find the chosen insight or pick the first pain
-    let chosenInsight = insights.insights.find(
-      (i: { title: string }) => i.title === chosenInsightTitle
-    );
-
-    if (!chosenInsight) {
-      // Default to first pain if no specific insight chosen
-      chosenInsight =
-        insights.insights.find((i: { type: string }) => i.type === "pain") ||
-        insights.insights[0];
-    }
-
-    if (!chosenInsight) {
+    // Validate prior summary length if provided
+    if (priorSummary && priorSummary.length > 1000) {
       return NextResponse.json(
-        { ok: false, error: { code: "NO_INSIGHTS", message: "No insights found to reference in email" } },
-        { status: 400 }
+        {
+          ok: false,
+          error: {
+            code: "VALIDATION_ERR",
+            message: "priorSummary exceeds maximum length of 1,000 characters",
+            hint: "Please shorten the prior summary"
+          }
+        },
+        { status: 413 }
       );
     }
-
-    // Pick the first quote from the chosen insight
-    const quote = chosenInsight.quotes[0]?.text || "No specific quote available";
 
     try {
       // Generate follow-up email with retry logic built-in
-      const followUpEmail = await generateEmail(
-        {
-          name: customerName,
-          role: "",
+      const followUpEmail = await generateEmail(specifications, {
+        profile: {
+          name: customerName || '[Name]',
+          role: customerRole,
         },
-        {
-          title: chosenInsight.title,
-          quote: quote,
-        },
-        desiredCommitment || "15m call"
-      );
-
-      // Update interview with follow-up email
-      useStore.getState().updateInterview(interviewId, {
-        followUpEmail,
+        priorSummary,
+        insights: insights || [],
+        tone: tone || 'professional',
+        length: length || 'medium',
+        includePlaceholders: includePlaceholders ?? false,
       });
+
+      // Update interview with follow-up email if interviewId provided
+      if (interviewId) {
+        useStore.getState().updateInterview(interviewId, {
+          followUpEmail,
+        });
+      }
 
       return NextResponse.json({
         ok: true,
@@ -95,6 +140,7 @@ export async function POST(request: NextRequest) {
           error: {
             code: normalized.code || "AI_ERR",
             message: normalized.message,
+            hint: "Try rephrasing your specifications or reducing complexity"
           },
         },
         { status: statusCode }
@@ -110,6 +156,7 @@ export async function POST(request: NextRequest) {
         error: {
           code: normalized.code || "SERVER_ERR",
           message: "Failed to generate follow-up email",
+          hint: "Please try again or contact support"
         },
       },
       { status: 500 }

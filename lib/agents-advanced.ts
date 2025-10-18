@@ -400,114 +400,74 @@ function loadCoachingSystemPrompt(): string {
     return readFileSync(path, 'utf-8');
   } catch (error) {
     console.warn('Could not load coaching-system.txt, using inline version');
-    return `You are a coach that analyzes the interviewer's questions and ways they are extracting information using 4 books that are based on strong customer discovery principles.
+    return `Be a coach that analyzes the interviewer's questions and ways they are extracting information using 4 books that are based on strong customer discovery principles. Listed below are the diagnostic rubrics that the transcripts should be examined in for the coaching. Highlight the specific quotes within the annotated transcript and in a white text box that shows when you hover over the specific quote, show the coaching behind that specific interviewer sentence.
 
-Highlight specific quotes within the annotated transcript. For each highlight, provide coaching feedback that will appear when hovering over that specific quote.
+Diagnostic Rubric for Customer Discovery Interviews (Textual Format)
+1. The Mom Test
+Principle (What Good Interviewing Looks Like)
+The interviewer must focus on collecting concrete facts about the customers' lives and world views by discussing specific actions taken in the past. The conversation should be leveraged to gain insights that allow the business to improve. The interviewer should try to "show, not tell" by prompting customers to recount past experiences, moving away from opinions and moving toward actions. Good interviewing relies on asking good questions that even a biased person cannot lie about.
+Failure Modes (What Goes Wrong)
+A key failure mode is inviting bad data, which comes in three forms: compliments, fluff (generics, hypotheticals, and the future), and ideas. Teams commonly use "heavy-handed questions" that force people to say something nice about the business. This includes asking hypothetical questions or questions rooted in the future, as anything involving the future is an over-optimistic lie. Another serious failure mode is exposing the interviewer's ego or pitching the solution, which causes the customer to stop talking about their problems. Finally, accepting compliments is dangerous because they are the "fool's gold of customer learning: shiny, distracting, and entirely worthless".
+Detectable Textual Signals (For AI Detection)
+• ego-exposure / seeking-compliment: Presence of the exact phrases: "do you think it's a good idea", "do you like it?", or instances where the interviewer uses phrases like, "I had an awesome idea for an app", or starts pitching by saying, "No no, I don't think you get it..." or "Yes, but it also does this!".
+• fluff-future-tense / fluff-hypothetical: Customer uses words like "I would," "I will," "I might," or "I could" when describing future behavior or usage. Interviewer asks questions starting with "Would you ever buy...".
+• fluff-generic-claim: Customer uses vague quantifiers like "I usually," "I always," or "I never".
+• closed-question / request-for-opinion: Interviewer asks a question that invites simple affirmation or opinion rather than fact (e.g., asking "How much would you pay for X?" because the number makes it feel rigorous but is actually bad data).
+Examples of Bad Phrasing and Their Corrected Version
+1. Bad Phrasing (Opinion/Hypothetical): "Do you think it's a good idea?". Corrected Phrasing (Past Behavior): "Talk me through the last time that happened.".
+2. Bad Phrasing (Future Promise/Price Guess): "How much would you pay for X?". Corrected Phrasing (Current Expenditure/Budget): "How much does the problem cost them? How much do they currently pay to solve it?".
+List of Label Names (AI Output Codes)
+ego-exposure, seeking-compliment, fluff-generic-claim, fluff-future-tense, fluff-hypothetical, pitching-solution, biasing-question, request-for-opinion, asking-about-past-specifics, deflecting-compliment, closed-question.
 
-## DIAGNOSTIC RUBRICS
+--------------------------------------------------------------------------------
+2. Talking to Humans
+Principle (What Good Interviewing Looks Like)
+The interviewer should focus on having a meaningful dialogue where the customer's stories illuminate the path the business might take. It is effective to ask the subject to share an experience, aiming for deep insights into their emotional journeys. Successful engagement should begin with an open-ended question that invites the interviewee to share authentic experiences and pain points in detail.
+Failure Modes (What Goes Wrong)
+A major failure is jumping straight to pointed questions that lead the customer to give the interviewer the answers they want to hear. Relying on simple yes-or-no questions limits dialogue depth and results in less valuable insights. Furthermore, interviews conducted using text-based mediums like email or chat should be entirely avoided if possible, as a significant portion of communication is non-verbal.
+Detectable Textual Signals (For AI Detection)
+• closed-question: Interrogative sentences where the likely answer is "yes," "no," or a short affirmation, indicating a lack of elaboration space.
+• seeking-validation: Interviewer asks a question that steers the customer towards confirming a pre-existing belief.
+• open-ended-elaboration: Customer response begins with a detailed story or lengthy recounting of an experience.
+• avoid-text-medium-documented: Notes or meta-data indicating the interview format was email or chat, which is discouraged due to the loss of non-verbal cues.
+Examples of Bad Phrasing and Their Corrected Version
+1. Bad Phrasing (Closed/Leading): "Do you agree that it's usually hard to find time to research challenging products?" (Inferred from generic failure to ask open-ended questions). Corrected Phrasing (Open-ended): "Can you tell me about a time you faced challenges with similar products?".
+2. Bad Phrasing (Solution Focus): "If we gave you a simplified app for this task, would you use it daily?" (Inferred poor practice from principle of needing authentic experience, not hypotheticals). Corrected Phrasing (Motive/Empathy): "What are your needs, frustrations, and desires that currently prevent you from completing that task efficiently?".
+List of Label Names (AI Output Codes)
+closed-question, seeking-validation, open-ended-elaboration, asking-about-past-specifics, avoid-text-medium-documented, customer-positive-feedback-fluff.
 
-### 1. The Mom Test
-**Principle:** Focus on collecting concrete facts about customers' lives and world views by discussing specific actions taken in the past. Ask good questions that even a biased person cannot lie about. "Show, not tell" by prompting customers to recount past experiences.
+--------------------------------------------------------------------------------
+3. Lean Customer Development
+Principle (What Good Interviewing Looks Like)
+Customer development is an approach to reduce business risks by challenging assumptions about who customers are and what they need, focusing on building products customers will buy. The best predictor of future behavior is current behavior. The interviewer must listen for emotion when taking notes, as emotion is prioritization. You should be trying to find people who have the specific problem you are trying to solve.
+Failure Modes (What Goes Wrong)
+A major failure is falling victim to confirmatory bias, where interviewers naturally see what confirms their assumptions and tune out what invalidates them. Another failure is asking customers for a list of what they want, as this reveals what they intellectually think ought to be important, not what they prioritize emotionally. Entrepreneurs are often biased toward their own great ideas. Feature requests should not be accepted at face value but must be dug into, otherwise they risk mistaking wants for will.
+Detectable Textual Signals (For AI Detection)
+• emotional-indicator-missing: Discussion of a problem point (lightning bolt symbol, ☇) without accompanying emotional text indicators like Angry (:( ) or Excited (:) ).
+• wishing-question: Interviewer uses the phrase, "If you could wave a magic wand".
+• feature-request-superficial: Customer requests a feature (e.g., "I need X feature"), and the interviewer fails to follow up with questions about the underlying motive (e.g., "walk me through when and how you would use it?").
+• seeking-current-behavior: Interviewer asks: "What Tools Do You Use for ______?" or "How Often Do You Do ______?".
+• cost-or-time-pain-check: Interviewer asks questions revealing financial implications, such as: "How Much Additional Time or Money Does It Cost You?".
+Examples of Bad Phrasing and Their Corrected Version
+1. Bad Phrasing (Feature Request Follow-up Fail): "You're saying that you'd like [feature]?". Corrected Phrasing (Probing Motive/Value): "If we built this data export feature, what would you be able to do that you aren't able to do today?".
+2. Bad Phrasing (Unconstrained Wish): "If you could wave a magic wand and solve anything, what would you do?". Corrected Phrasing (Constrained Wish/Pain): "If you could wave a magic wand and change anything—doesn't matter if it's possible or not—about [problem area], what would it be?".
+List of Label Names (AI Output Codes)
+emotional-indicator-detected, wishing-question, feature-request-superficial, probing-question-for-motive, seeking-current-behavior, cost-or-time-pain-check, confirmatory-bias-detected.
 
-**Failure Modes:**
-- Compliments, fluff (generics, hypotheticals, future), and ideas are bad data
-- Heavy-handed questions forcing nice responses
-- Hypothetical/future questions (over-optimistic lies)
-- Exposing interviewer's ego or pitching the solution
-- Accepting compliments (fool's gold of customer learning)
-
-**Detection Signals:**
-- ego-exposure/seeking-compliment: "do you think it's a good idea", "do you like it?", "I had an awesome idea"
-- fluff-future-tense/fluff-hypothetical: "I would", "I will", "I might", "I could", "Would you ever buy..."
-- fluff-generic-claim: "I usually", "I always", "I never"
-- request-for-opinion: "How much would you pay for X?" (bad data despite feeling rigorous)
-- pitching-solution: "No no, I don't think you get it...", "Yes, but it also does this!"
-
-**Correction Examples:**
-❌ "Do you think it's a good idea?" → ✅ "Talk me through the last time that happened."
-❌ "How much would you pay for X?" → ✅ "How much does the problem cost you? How much do you currently pay to solve it?"
-
-### 2. Talking to Humans
-**Principle:** Focus on meaningful dialogue where customer stories illuminate the path forward. Ask subjects to share experiences for deep insights into emotional journeys. Start with open-ended questions inviting authentic experiences and pain points.
-
-**Failure Modes:**
-- Jumping to pointed questions that lead to desired answers
-- Simple yes-or-no questions limiting dialogue depth
-- Text-based mediums (email/chat) losing non-verbal cues
-
-**Detection Signals:**
-- closed-question: Questions with "yes", "no", or short affirmation answers
-- seeking-validation: Steering customer toward confirming pre-existing belief
-- open-ended-elaboration: Customer gives detailed story (GOOD)
-
-**Correction Examples:**
-❌ "Do you agree it's hard to find time?" → ✅ "Tell me about a time you faced challenges with similar products."
-❌ "Would you use our simplified app daily?" → ✅ "What needs, frustrations, and desires prevent you from completing that task efficiently?"
-
-### 3. Lean Customer Development
-**Principle:** Reduce business risks by challenging assumptions about who customers are and what they need. Best predictor of future behavior is current behavior. Listen for emotion (emotion is prioritization). Find people with the specific problem you're trying to solve.
-
-**Failure Modes:**
-- Confirmatory bias (seeing only what confirms assumptions)
-- Asking for feature lists (reveals intellectual wants, not emotional priorities)
-- Accepting feature requests at face value without digging into motivation
-- Mistaking wants for will
-
-**Detection Signals:**
-- emotional-indicator-missing: Problem discussed without emotional context
-- wishing-question: "If you could wave a magic wand"
-- feature-request-superficial: Customer requests feature without follow-up on motive
-- seeking-current-behavior: "What tools do you use for ___?", "How often do you do ___?" (GOOD)
-- cost-or-time-pain-check: Questions about financial/time implications (GOOD)
-
-**Correction Examples:**
-❌ "You'd like [feature]?" → ✅ "If we built this, what would you be able to do that you can't do today?"
-❌ "Wave a magic wand to solve anything?" → ✅ "Wave a magic wand to change anything about [problem area], what would it be?"
-
-### 4. The Lean Startup
-**Principle:** Achieve validated learning—demonstrating objectively that you're learning to grow a sustainable business. Find the right thing to build as quickly as possible. Success = learning to solve customer's problem, not delivering features. Test leap-of-faith assumptions (Value & Growth Hypotheses). Use actionable metrics (cohort analysis), not vanity metrics.
-
-**Failure Modes:**
-- Building products customers refuse to use
-- Achieving failure (executing flawed plan perfectly)
-- Vanity metrics (gross revenue, total users) giving false progress
-- Optimization without validated learning
-
-**Detection Signals:**
-- vanity-metric-citation: "total registered users", "total paying customers", "40,000 hits"
-- optimization-without-learning: A/B testing without clear hypothesis testing
-- achieving-failure: Praising execution while missing underlying problem
-- actionable-metric-focus: Conversion rates, cohort analysis, customer flow (GOOD)
-
-**Correction Examples:**
-❌ "Feature delivered to specification, code running perfectly" → ✅ "Initial product confirmed users desire to [solve X], validating core hypothesis"
-❌ "Record sign-ups, growth engine working" → ✅ "Among last month's cohort, what percentage are actively engaged?"
-
-## OUTPUT REQUIREMENTS
-
-Return JSON only (no prose, no code fences):
-{
-  "highlights": [{
-    "span_text": "exact quote from transcript (<=180 chars)",
-    "reason": "one of the allowed reason codes",
-    "book": "The Mom Test | Talking to Humans | Lean Customer Development | The Lean Startup",
-    "suggestion": "specific coaching advice for this quote",
-    "start_char": character index where quote starts,
-    "end_char": character index where quote ends
-  }],
-  "advice": [{
-    "book": "book name",
-    "what_to_improve": "overall pattern to fix",
-    "example_rewrite": "concrete better phrasing example"
-  }]
-}
-
-**Rules:**
-- Limit highlights to 20 maximum (prioritize worst issues)
-- Output spans <=180 chars with precise start_char/end_char indices
-- Each highlight has exactly ONE book and ONE reason
-- Output 2-6 advice items mapped to books
-- Focus on interviewer's questions/behavior, not customer responses (unless fluff)`;
+--------------------------------------------------------------------------------
+4. The Lean Startup
+Principle (What Good Interviewing Looks Like)
+The purpose of the startup is to achieve validated learning—the process of demonstrating objectively that the business is learning how to grow a sustainable business. The ultimate goal is to find the right thing to build as quickly as possible. Success is defined as learning how to solve the customer's problem, not merely delivering a feature. Interviewing should test the fundamental leap-of-faith assumptions (Value Hypothesis and Growth Hypothesis). Learning milestones must rely on actionable metrics, such as cohort analysis, rather than vanity metrics.
+Failure Modes (What Goes Wrong)
+The biggest waste of all is building a product that customers refuse to use. A common failure is achieving failure, which means successfully executing a flawed plan (building a product to specification that does not solve the underlying customer need). Falling prey to vanity metrics (like gross revenue or total registered users) is a key danger, as they give the false impression of progress without revealing whether the company's growth engine is working effectively. Optimization efforts (e.g., split-testing) are worthless unless they are tied directly to validated learning regarding a core hypothesis.
+Detectable Textual Signals (For AI Detection)
+• vanity-metric-citation: Interviewer or customer cites metrics focused on total/gross top-line numbers, such as: "total registered users", "total paying customers", or "40,000 hits this month".
+• optimization-without-learning: The discussion focuses primarily on incremental technical tweaks (e.g., A/B testing copy, improving product performance) without a clear statement of which core assumption or hypothesis (Value or Growth) is being tested or refuted.
+• achieving-failure: Customer praises the technical execution or design of a product, but the interview reveals the team missed the underlying problem (e.g., product was "technically and aesthetically lovely" but 90% was irrelevant).
+• actionable-metric-focus: Interviewer discusses performance in terms of conversion rates across cohorts or customer flow sequences (e.g., "percentage of customers who logged in at least one time").
+Examples of Bad Phrasing and Their Corrected Version
+1. Bad Phrasing (Measuring Execution, not Learning): "We successfully delivered the feature to specification; the code is running perfectly.". Corrected Phrasing (Measuring Learning): "The initial product confirmed that users did have the desire to [solve problem X], which validates our core hypothesis.".
+2. Bad Phrasing (Vanity Focus): "We saw a record increase in sign-ups this month. Our growth engine is working.". Corrected Phrasing (Actionable Focus): "Among the users acquired last month (cohort analysis), what percentage are actively engaged (retention rate)?".`;
   }
 }
 
@@ -580,32 +540,140 @@ export async function generateQuestions(
     return deriveQuestionsFallback(transcript, productIdea, alignment, coaching);
   }
 
-  const system = `Generate non-leading, past-behavior questions to close gaps based on:
-- Talking to Humans (stories)
-- The Mom Test (avoid hypotheticals/pitch; anchor past)
-- Lean Customer Development (frequency, workflow, alternatives, willingness/constraints)
-
-You will receive:
-1. The interview transcript (what was actually discussed)
-2. The product vision being tested (what the founder is building)
-3. Alignment analysis (which insights support/contradict/are neutral to the vision)
-4. Optional coaching gaps (interview quality issues)
-
-Use ALL of this context to generate specific, actionable questions that:
-- Build on what was already discussed in the transcript
-- Test the product vision more rigorously
-- Address gaps in the conversation
-- Fix interview quality issues identified by coaching
-
-Return JSON only, no prose, no code fences.
-{questions:[{text, linked_to, why (TH/LCD/TMT labels), style:"past-behavior"}]}`;
+  const system = `You are developing further questions based on the interview transcript that they should have asked that specific interviewee in the first interview. I want the better questions to focus on probing the details and emotions behind a customer's stated problems and expanding upon previously missed opportunities within the transcript. These questions should be further elaborating upon stated customer pain points, customer needs, behaviors, and actionable takeaways in the transcript.`;
 
   const truncatedTranscript = truncateForLLM(transcript, 3000);
   const coachingGaps = coaching
     ? coaching.advice.map(a => `${a.book}: ${a.what_to_improve}`).join('\n')
     : 'No coaching gaps provided.';
 
-  const user = `TRANSCRIPT:
+  const user = `You are a Customer Discovery Further Question Generator
+ Your job is to analyze an interview transcript and generate better follow-up questions that the founder could have asked that specific interviewee.
+ These questions help founders go beyond surface-level answers — revealing motivations, emotions, workflows, and decision triggers.
+
+🎯 Objective
+Help early-stage founders improve their interviewing craft by generating questions that:
+Probe deeper into pain points and needs stated by the customer.
+
+
+Expand missed opportunities where the interviewer failed to explore important cues.
+
+
+Uncover emotions, context, and behavior — not opinions or hypotheticals.
+
+
+Are written in a natural, neutral tone using past-behavior framing.
+
+
+Can be directly reused in the founder's next interview.
+
+
+
+🧠 Rules for Good Discovery Questions
+Always:
+Anchor in past experiences, not future hypotheticals.
+
+
+Focus on specific stories, not opinions or guesses.
+
+
+Explore frequency, intensity, and emotional impact.
+
+
+Ask for examples ("Can you walk me through the last time…?").
+
+
+Be short and human, not academic.
+
+
+Never:
+Ask, "Would you use this?" or "Do you think it's a good idea?"
+
+
+Ask about prices, future promises, or compliments.
+
+
+Pitch the product or lead the witness.
+🧩 Method
+Review the transcript and insights.
+
+
+Identify strong or ambiguous signals around pain, behavior, and motivation.
+
+
+Note where the interviewer missed opportunities (based on transcript patterns or coaching highlights).
+
+
+For each unresolved or emotional area, write 1–2 better questions that:
+
+
+Invite storytelling or concrete examples.
+
+
+Seek emotional or contextual clarity.
+
+
+Stay neutral, non-leading, and grounded in the customer's past.
+
+
+Mix question types:
+
+
+Emotion probes: "How did that make you feel when that happened?"
+
+
+Frequency checks: "How often does this issue come up in a typical week?"
+
+
+Workflow expansion: "What steps do you take right after this problem occurs?"
+
+
+Decision triggers: "What finally made you decide to try fixing it?"
+
+
+Language style:
+
+
+Plain, founder-friendly English.
+
+
+Sound natural — like a thoughtful follow-up, not an academic survey.
+
+
+Max 20 words per question.
+
+
+
+🧭 Prioritization
+Prioritize gaps labeled as: missed-probe, fluff-hypothetical, feature-request-superficial, seeking-validation, confirmatory-bias-detected.
+
+
+Prefer insights from Contradicts and Neutral buckets — these reveal learning opportunities.
+
+
+When multiple signals overlap, generate questions that could clarify both.
+Fail-safe Behavior
+If transcript is too short (< 300 chars) or contains no discernible customer pain:
+Return an empty questions array.
+
+
+Include "meta": {"reason": "Transcript too short or lacks concrete data"}.
+
+
+
+✅ Validation
+Each question must contain only one idea.
+
+
+No question starts with "Would", "Will", "Do you think", or "Could you see yourself…".
+
+
+Questions should make sense when read aloud conversationally.
+
+
+Return strictly valid JSON — no markdown or prose.
+
+TRANSCRIPT:
 ${truncatedTranscript}
 
 PRODUCT_VISION:
@@ -617,11 +685,7 @@ ${JSON.stringify(alignment, null, 2)}
 OPTIONAL_COACHING_GAPS:
 ${coachingGaps}
 
-TASK: Generate 3-12 past-behavior questions that:
-1. Build on the actual conversation in the transcript
-2. Test the product vision more rigorously
-3. Address gaps or improve interview quality
-Return JSON matching schema.`;
+TASK: Generate 3-12 past-behavior questions that address the above criteria. Return JSON matching schema.`;
 
   try {
     const response = await callClaude(HAIKU_MODEL, system, user, HAIKU_CONFIG);
@@ -635,60 +699,154 @@ Return JSON matching schema.`;
 }
 
 /**
- * Generates a concise follow-up email referencing interview insights.
- * Uses Claude Haiku 3.5 for fast generation. Target: <=120 words.
+ * Generates a follow-up email based on free-form specifications.
+ * Uses Claude Sonnet 4.5 for high-quality generation.
  *
- * @param profile - Customer profile with name and optional role
- * @param insight - Key insight with title and supporting quote
- * @param desiredCommitment - The next step you want (e.g., "15m call", "prototype trial")
+ * @param specifications - Free-form user specs (e.g., "ask to set up interview in 3 weeks, clarify insight #3")
+ * @param context - Optional context including profile, insights, prior summary
  * @returns Follow-up email output with subject and body
  *
  * @example
  * const email = await generateEmail(
- *   { name: "Sarah Chen", role: "Product Manager" },
- *   { title: "Manual feedback consolidation pain", quote: "I spend 3-4 hours weekly on this" },
- *   "15m call to discuss workflow"
+ *   "ask to set up interview in 3 weeks, mention their pain about manual data consolidation",
+ *   {
+ *     profile: { name: "Sarah Chen", role: "Product Manager" },
+ *     priorSummary: "Discussed feedback consolidation pain points",
+ *     insights: ["Manual process takes 3-4 hours weekly", "Currently using spreadsheets"]
+ *   }
  * );
- * console.log(email.subject);
- * console.log(email.body.split(' ').length); // Should be ~120 words or less
  */
 export async function generateEmail(
-  profile: { name: string; role?: string },
-  insight: { title: string; quote: string },
-  desiredCommitment: string
+  specifications: string,
+  context?: {
+    profile?: { name: string; role?: string };
+    priorSummary?: string;
+    insights?: string[];
+    tone?: 'professional' | 'friendly' | 'casual';
+    length?: 'short' | 'medium' | 'long';
+    includePlaceholders?: boolean;
+  }
 ): Promise<FollowUpEmailOutput> {
   // Return mock if no API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('No ANTHROPIC_API_KEY found, using transcript-derived email fallback');
-    return deriveEmailFallback(profile, insight, desiredCommitment);
+    console.warn('No ANTHROPIC_API_KEY found, using fallback email');
+    const profile = context?.profile || { name: 'there' };
+    return deriveEmailFallback(
+      profile,
+      { title: 'follow-up', quote: specifications },
+      'a brief conversation'
+    );
   }
 
-  const system = `Draft a concise, bias-free follow-up email that references one quote and proposes exactly ONE clear next step (commitment): e.g., 15m call / prototype trial / intro / share anonymized data sample. No pitching. Max 120 words.
-Return JSON only, no prose, no code fences.
-{subject, body}`;
+  const system = `You draft professional follow-up emails to customer-discovery interviewees. You strictly follow user instructions, keep copy concise, reflect prior context accurately, add specific scheduling windows if asked, and avoid filler. Output only valid JSON with keys subject, body, raw_markdown.`;
 
-  const truncatedQuote = truncateForLLM(insight.quote, 300);
+  const today = new Date().toISOString().split('T')[0];
+  const tone = context?.tone || 'professional';
+  const length = context?.length || 'medium';
+  const includePlaceholders = context?.includePlaceholders ?? false;
 
-  const user = `CUSTOMER:
-Name: ${profile.name}
-Role: ${profile.role || 'Not specified'}
+  const user = `INTERVIEWEE PROFILE:
+Name: ${context?.profile?.name || '[Name]'}
+Role: ${context?.profile?.role || '[Role]'}
 
-KEY_PAIN/QUOTE:
-Insight: ${insight.title}
-Quote: "${truncatedQuote}"
+LAST CONTACT DATE:
+${today}
 
-DESIRED_COMMITMENT:
-${desiredCommitment}
+PRIOR SUMMARY:
+${context?.priorSummary || 'Previous interview discussion'}
 
-TASK: Generate a follow-up email (max 120 words) that references the quote and proposes the commitment. Be warm but professional, no sales pitch. Return JSON matching schema.`;
+INSIGHTS:
+${context?.insights?.join('\n') || 'No specific insights provided'}
+
+SPECIFICATIONS:
+${specifications}
+
+TONE: ${tone}
+LENGTH: ${length}
+INCLUDE_PLACEHOLDERS: ${includePlaceholders}
+TODAY: ${today}
+
+Return JSON with keys subject, body, and raw_markdown (markdown version of the same email). Do not return extra keys.`;
 
   try {
-    const response = await callClaude(HAIKU_MODEL, system, user, HAIKU_CONFIG);
+    const response = await callClaude(SONNET_MODEL, system, user, SONNET_CONFIG);
     const parsed = extractJson(response);
     return FollowupSchema.parse(parsed);
   } catch (error) {
     throw new Error(
       `Failed to generate follow-up email: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Edits an existing follow-up email draft based on edit instructions.
+ * Uses Claude Sonnet 4.5 to surgically apply edits while preserving correct details.
+ *
+ * @param draft - The current email draft with subject and body
+ * @param editInstructions - Free-form edit instructions (e.g., "shorter subject, friendlier tone, add 2 new time slots")
+ * @param context - Optional context to help with edits
+ * @returns Modified follow-up email
+ *
+ * @example
+ * const edited = await editEmail(
+ *   { subject: "Following up on our conversation", body: "Hi Sarah,\n\nThanks for..." },
+ *   "make the subject shorter and add 2 specific time slots for next week",
+ *   { profile: { name: "Sarah Chen" } }
+ * );
+ */
+export async function editEmail(
+  draft: { subject: string; body: string },
+  editInstructions: string,
+  context?: {
+    profile?: { name: string; role?: string };
+    priorSummary?: string;
+    insights?: string[];
+    tone?: 'professional' | 'friendly' | 'casual';
+    length?: 'short' | 'medium' | 'long';
+    includePlaceholders?: boolean;
+  }
+): Promise<FollowUpEmailOutput> {
+  // Return draft if no API key
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.warn('No ANTHROPIC_API_KEY found, returning original draft');
+    return draft;
+  }
+
+  const system = `You draft professional follow-up emails to customer-discovery interviewees. You strictly follow user instructions, keep copy concise, reflect prior context accurately, add specific scheduling windows if asked, and avoid filler. Output only valid JSON with keys subject, body, raw_markdown.`;
+
+  const today = new Date().toISOString().split('T')[0];
+  const tone = context?.tone || 'professional';
+  const length = context?.length || 'medium';
+  const includePlaceholders = context?.includePlaceholders ?? false;
+
+  const user = `ORIGINAL DRAFT:
+Subject: ${draft.subject}
+Body:
+${draft.body}
+
+EDIT INSTRUCTIONS:
+${editInstructions}
+
+OPTIONAL CONTEXT:
+Interviewee: ${context?.profile?.name || '[Name]'}${context?.profile?.role ? ` (${context.profile.role})` : ''}
+Prior Summary: ${context?.priorSummary || 'N/A'}
+Insights: ${context?.insights?.join('; ') || 'N/A'}
+
+TONE: ${tone}
+LENGTH: ${length}
+INCLUDE_PLACEHOLDERS: ${includePlaceholders}
+TODAY: ${today}
+
+Apply the edits directly to the given draft. Keep helpful existing content. Follow the edit instructions exactly. Return JSON with keys subject, body, raw_markdown only.`;
+
+  try {
+    const response = await callClaude(SONNET_MODEL, system, user, SONNET_CONFIG);
+    const parsed = extractJson(response);
+    return FollowupSchema.parse(parsed);
+  } catch (error) {
+    throw new Error(
+      `Failed to edit follow-up email: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
 }
