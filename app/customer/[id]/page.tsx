@@ -125,7 +125,7 @@ export default function CustomerProfilePage() {
 
       {/* Timeline */}
       <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Interview Timeline</h2>
+        <h2 className="text-2xl font-semibold mb-4">Analyzed Interviews</h2>
         <Timeline interviews={profile.interviews} />
       </div>
 

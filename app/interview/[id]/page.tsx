@@ -10,8 +10,7 @@ import { OptionalActions } from '@/components/OptionalActions';
 import { TranscriptCoachView } from '@/components/TranscriptCoachView';
 import { BetterQuestions } from '@/components/BetterQuestions';
 import { FollowupEmail } from '@/components/FollowupEmail';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { SummaryOutput as SummaryOutputSimplified, InsightItem, AlignmentOutput as AlignmentOutputSimplified } from '@/lib/types';
 import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput } from '@/types/ai';
 import { useStore } from '@/lib/store';
@@ -20,45 +19,30 @@ export default function InterviewDetailPage() {
   const params = useParams();
   const interviewId = params.id as string;
 
-  const [activeTab, setActiveTab] = useState('transcript');
+  const [showCoaching, setShowCoaching] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
 
   // Get interview and customer from Zustand store
   const interviewData = useStore((state) => state.getInterview(interviewId));
+  const updateInterview = useStore((state) => state.updateInterview);
   const customer = useStore((state) =>
     interviewData ? state.getCustomerById(interviewData.customerId) : null
   );
 
-  // Optional agents handlers (currently disabled for storage-based version)
   const handleCoachingLoaded = (coaching: CoachingOutput) => {
-    // TODO: Save to localStorage when optional agents are enabled
-    setActiveTab('coaching');
+    updateInterview(interviewId, { coaching });
+    setShowCoaching(true);
   };
 
   const handleQuestionsLoaded = (betterQuestions: BetterQuestionsOutput) => {
-    // TODO: Save to localStorage when optional agents are enabled
-    setActiveTab('questions');
+    updateInterview(interviewId, { betterQuestions });
+    setShowQuestions(true);
   };
 
   const handleEmailLoaded = (followUpEmail: FollowUpEmailOutput) => {
-    // TODO: Save to localStorage when optional agents are enabled
-    setActiveTab('email');
-  };
-
-  const handleEmailRegenerate = async (desiredCommitment: string) => {
-    try {
-      const response = await fetch('/api/followup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId, desiredCommitment }),
-      });
-
-      if (!response.ok) throw new Error('Failed to regenerate');
-
-      const result = await response.json();
-      handleEmailLoaded(result.followUpEmail);
-    } catch (error) {
-      console.error('Regeneration error:', error);
-    }
+    updateInterview(interviewId, { followUpEmail });
+    setShowEmail(true);
   };
 
   // Convert Interview to format expected by UI components
@@ -132,51 +116,69 @@ export default function InterviewDetailPage() {
         <h2 className="mb-4 text-2xl font-semibold">Optional Actions</h2>
         <OptionalActions
           interviewId={interviewId}
-          hasCoaching={false}
-          hasQuestions={false}
-          hasEmail={false}
+          transcript={interviewData?.transcript || ''}
+          alignment={interviewData?.alignment || null}
+          insights={interviewData?.insights || null}
+          coaching={interviewData?.coaching || null}
+          customerName={customer?.name || ''}
+          hasCoaching={!!interviewData?.coaching}
+          hasQuestions={!!interviewData?.betterQuestions}
+          hasEmail={!!interviewData?.followUpEmail}
           onCoachingLoaded={handleCoachingLoaded}
           onQuestionsLoaded={handleQuestionsLoaded}
           onEmailLoaded={handleEmailLoaded}
         />
       </div>
 
-      {/* Tabs for Optional Outputs */}
-      <div className="mb-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="transcript">Transcript</TabsTrigger>
-            <TabsTrigger value="coaching">Coaching</TabsTrigger>
-            <TabsTrigger value="questions">Questions</TabsTrigger>
-            <TabsTrigger value="email">Follow-up</TabsTrigger>
-          </TabsList>
+      {/* Optional Results */}
+      {showCoaching && interviewData?.coaching && (
+        <div className="mb-8">
+          <TranscriptCoachView transcript={interviewData.transcript} coaching={interviewData.coaching} />
+        </div>
+      )}
 
-          <TabsContent value="transcript" className="mt-6">
-            <Card className="p-6">
-              <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+      {showQuestions && interviewData?.betterQuestions && (
+        <div className="mb-8">
+          <BetterQuestions data={interviewData.betterQuestions} />
+        </div>
+      )}
+
+      {showEmail && interviewData?.followUpEmail && (
+        <div className="mb-8">
+          <FollowupEmail
+            data={interviewData.followUpEmail}
+            onRegenerate={async (commitment) => {
+              const response = await fetch('/api/followup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  interviewId,
+                  desiredCommitment: commitment,
+                  insights: interviewData.insights,
+                  customerName: customer?.name || '',
+                }),
+              });
+              const result = await response.json();
+              if (result.ok) handleEmailLoaded(result.data.followUpEmail);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Transcript Section */}
+      <div className="mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Transcript</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-96 overflow-y-auto rounded-md bg-muted p-4">
+              <pre className="whitespace-pre-wrap font-sans text-sm">
                 {interview.transcript}
               </pre>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="coaching" className="mt-6">
-            <TranscriptCoachView
-              transcript={interview.transcript}
-              coaching={null}
-            />
-          </TabsContent>
-
-          <TabsContent value="questions" className="mt-6">
-            <BetterQuestions data={null} />
-          </TabsContent>
-
-          <TabsContent value="email" className="mt-6">
-            <FollowupEmail
-              data={null}
-              onRegenerate={handleEmailRegenerate}
-            />
-          </TabsContent>
-        </Tabs>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

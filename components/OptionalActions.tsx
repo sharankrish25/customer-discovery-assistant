@@ -5,10 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
-import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput } from '@/types/ai';
+import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput, AlignmentOutput, InsightsOutput } from '@/types/ai';
 
 interface OptionalActionsProps {
   interviewId: string;
+  transcript: string;
+  alignment: AlignmentOutput | null;
+  insights: InsightsOutput | null;
+  coaching: CoachingOutput | null;
+  customerName: string;
   hasCoaching: boolean;
   hasQuestions: boolean;
   hasEmail: boolean;
@@ -19,6 +24,11 @@ interface OptionalActionsProps {
 
 export function OptionalActions({
   interviewId,
+  transcript,
+  alignment,
+  insights,
+  coaching,
+  customerName,
   hasCoaching,
   hasQuestions,
   hasEmail,
@@ -52,7 +62,7 @@ export function OptionalActions({
       const response = await fetch('/api/coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId }),
+        body: JSON.stringify({ interviewId, transcript }),
       });
 
       const result = await response.json();
@@ -92,7 +102,7 @@ export function OptionalActions({
       const response = await fetch('/api/next-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId }),
+        body: JSON.stringify({ interviewId, alignment, coaching }),
       });
 
       const result = await response.json();
@@ -131,7 +141,7 @@ export function OptionalActions({
       const response = await fetch('/api/followup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId }),
+        body: JSON.stringify({ interviewId, insights, customerName }),
       });
 
       const result = await response.json();
@@ -156,39 +166,66 @@ export function OptionalActions({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <Button
         onClick={handleCoach}
         disabled={anyBusy}
-        variant="outline"
-        className="flex-1 transition hover:shadow-md focus-visible:ring-2 focus-visible:ring-offset-2"
-        aria-label={`${hasCoaching ? 'Re-analyze' : 'Analyze'} interview quality`}
+        variant={hasCoaching ? "default" : "outline"}
+        className="h-24 flex flex-col items-center justify-center gap-2 transition hover:shadow-md"
+        aria-label="Coaching"
         aria-busy={loadingCoach}
       >
-        {loadingCoach && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {loadingCoach ? 'Analyzing quality…' : `${hasCoaching ? 'Re-analyze' : 'Analyze'} Interview Quality`}
+        {loadingCoach ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Analyzing...</span>
+          </>
+        ) : (
+          <>
+            <span className="text-lg font-semibold">Coaching</span>
+            <span className="text-xs text-muted-foreground">{hasCoaching ? 'View' : 'Generate'}</span>
+          </>
+        )}
       </Button>
       <Button
         onClick={handleNextQuestions}
         disabled={anyBusy}
-        variant="outline"
-        className="flex-1 transition hover:shadow-md focus-visible:ring-2 focus-visible:ring-offset-2"
-        aria-label={`${hasQuestions ? 'Regenerate' : 'Generate'} better questions`}
+        variant={hasQuestions ? "default" : "outline"}
+        className="h-24 flex flex-col items-center justify-center gap-2 transition hover:shadow-md"
+        aria-label="Questions"
         aria-busy={loadingQuestions}
       >
-        {loadingQuestions && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {loadingQuestions ? 'Generating questions…' : `${hasQuestions ? 'Regenerate' : 'Generate'} Better Questions`}
+        {loadingQuestions ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Generating...</span>
+          </>
+        ) : (
+          <>
+            <span className="text-lg font-semibold">Questions</span>
+            <span className="text-xs text-muted-foreground">{hasQuestions ? 'View' : 'Generate'}</span>
+          </>
+        )}
       </Button>
       <Button
         onClick={handleFollowup}
         disabled={anyBusy}
-        variant="outline"
-        className="flex-1 transition hover:shadow-md focus-visible:ring-2 focus-visible:ring-offset-2"
-        aria-label={`${hasEmail ? 'Regenerate' : 'Generate'} follow-up email`}
+        variant={hasEmail ? "default" : "outline"}
+        className="h-24 flex flex-col items-center justify-center gap-2 transition hover:shadow-md"
+        aria-label="Follow-up Email"
         aria-busy={loadingFollowup}
       >
-        {loadingFollowup && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {loadingFollowup ? 'Drafting email…' : `${hasEmail ? 'Regenerate' : 'Generate'} Follow-up Email`}
+        {loadingFollowup ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Drafting...</span>
+          </>
+        ) : (
+          <>
+            <span className="text-lg font-semibold">Follow-up</span>
+            <span className="text-xs text-muted-foreground">{hasEmail ? 'View' : 'Generate'}</span>
+          </>
+        )}
       </Button>
     </div>
   );
