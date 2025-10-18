@@ -27,7 +27,7 @@ export async function coachInterviewMock(
       },
       {
         span_text: "If you had a tool that could solve this, what would it look like?",
-        reason: "hypothetical",
+        reason: "hypothetical-question",
         book: "The Mom Test",
         suggestion:
           'Focus on past behavior instead: "Walk me through the last time you tried to solve this problem. What tools or solutions did you try?"',

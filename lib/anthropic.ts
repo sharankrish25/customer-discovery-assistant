@@ -49,3 +49,38 @@ export async function callClaude(
 
   return firstBlock.text;
 }
+
+/**
+ * Safely extracts and parses JSON from LLM responses.
+ * Handles markdown code fences and finds JSON objects/arrays in text.
+ *
+ * @param text - Raw text response from Claude
+ * @returns Parsed JSON object
+ * @throws Error with descriptive message if parsing fails
+ */
+export function extractJson<T = unknown>(text: string): T {
+  // Remove markdown code fences if present
+  let cleaned = text.trim();
+
+  // Match ```json...``` or ```...```
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  }
+
+  // Try to find JSON object or array in the text
+  const jsonMatch = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (jsonMatch) {
+    cleaned = jsonMatch[1];
+  }
+
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch (error) {
+    throw new Error(
+      `Failed to parse JSON from Claude response. ` +
+      `First 200 chars: ${text.slice(0, 200)}... ` +
+      `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}

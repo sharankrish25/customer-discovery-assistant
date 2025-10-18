@@ -40,55 +40,59 @@ export interface AlignmentOutput {
   };
 }
 
-export type BookReference =
+export type CoachingBook =
   | "Talking to Humans"
   | "The Mom Test"
   | "Lean Customer Development"
   | "The Lean Startup";
 
-export type HighlightReason =
-  | "hypothetical"
-  | "leading"
-  | "pitching"
+export type CoachingReason =
+  | "hypothetical-question"
+  | "leading-question"
+  | "pitching-solution"
   | "past-behavior-good"
   | "missed-probe"
   | "too-broad"
   | "segment-mismatch"
-  | "no-evidence-ask";
+  | "no-evidence-ask"
+  | "seeking-compliment"
+  | "request-for-opinion"
+  | "fluff-generic-claim"
+  | "fluff-future-tense"
+  | "fluff-hypothetical";
 
-export type QuestionStyle = "past-behavior";
+export interface CoachingHighlight {
+  span_text: string;
+  reason: CoachingReason;
+  book: CoachingBook;
+  suggestion: string;
+  start_char: number;
+  end_char: number;
+}
 
-export type QuestionWhy =
-  | "TH: story depth"
-  | "LCD: frequency/workflow/alternative"
-  | "TMT: past-behavior";
+export interface CoachingAdvice {
+  book: CoachingBook;
+  what_to_improve: string;
+  example_rewrite: string;
+}
 
 export interface CoachingOutput {
-  highlights: {
-    span_text: string;
-    reason: HighlightReason;
-    book: BookReference;
-    suggestion: string;
-    start_char: number;
-    end_char: number;
-  }[];
-  advice: {
-    book: BookReference;
-    what_to_improve: string;
-    example_rewrite: string;
-  }[];
+  highlights: CoachingHighlight[];
+  advice: CoachingAdvice[];
+}
+
+export interface BetterQuestion {
+  text: string;
+  linked_to: string; // insight_title | gap
+  why: "TH: story depth" | "LCD: frequency/workflow/alternative" | "TMT: past-behavior";
+  style: "past-behavior";
 }
 
 export interface BetterQuestionsOutput {
-  questions: {
-    text: string;
-    linked_to: string;
-    why: QuestionWhy;
-    style: QuestionStyle;
-  }[];
+  questions: BetterQuestion[];
 }
 
 export interface FollowUpEmailOutput {
   subject: string;
-  body: string;
+  body: string; // <=120 words target
 }

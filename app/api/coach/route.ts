@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { useStore } from "@/lib/store";
-import { coachInterviewMock } from "@/lib/anthropic-legacy";
+import { analyzeQuality } from "@/lib/agents-advanced";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call mock coaching analysis
-    const coaching = await coachInterviewMock(interview.transcript);
+    // Analyze interview quality using advanced agent
+    const coaching = await analyzeQuality(interview.transcript);
 
     // Update interview with coaching results
     useStore.getState().updateInterview(interviewId, {

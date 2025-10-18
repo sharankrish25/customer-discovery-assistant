@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { useStore } from "@/lib/store";
-import { generateQuestionsMock } from "@/lib/anthropic-legacy";
+import { generateQuestions } from "@/lib/agents-advanced";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,18 +24,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!interview.insights) {
+    if (!interview.alignment) {
       return NextResponse.json(
-        { error: "Interview must be analyzed first (insights required)" },
+        { error: "Interview must be analyzed first (alignment required)" },
         { status: 400 }
       );
     }
 
-    // Call mock question generation
-    const betterQuestions = await generateQuestionsMock(
-      interview.productIdea,
-      interview.transcript,
-      interview.insights
+    // Generate better questions using advanced agent
+    // Pass alignment and optional coaching (if available)
+    const betterQuestions = await generateQuestions(
+      interview.alignment,
+      interview.coaching || null
     );
 
     // Update interview with question results
