@@ -289,7 +289,7 @@ You MUST anchor every insight to the transcript using at least one verbatim quot
 No quote = not an insight.
 Quotes should be short and specific, not paraphrased.
 
-Keep only high-signal insights (max 8–12).
+Keep only high-signal insights (4-12 insights).
 
 Titles must be short (≤ 12 words).
 
@@ -330,12 +330,12 @@ Return JSON exactly matching this structure:
 
 Requirements:
 - Each insight MUST have at least one verbatim quote from the transcript
-- Max 8-12 insights (keep only high-signal)
+- Return 4-12 insights (keep only high-signal)
 - Titles must be ≤12 words
 - Quotes should be short and specific, not paraphrased
 - Group multiple quotes under one insight if they reinforce the same point
 - evidence_level: low=vague mention, med=clearly described/repeated, high=emotional/urgent/has workaround cost
-- If transcript is weak, return fewer insights and lower confidence
+- If transcript is weak, return fewer insights (minimum 4) and lower confidence
 - Never hypothesize beyond what was said
 
 Categories:
