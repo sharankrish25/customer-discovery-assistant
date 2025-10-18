@@ -28,7 +28,9 @@ export function Timeline({ interviews }: TimelineProps) {
   return (
     <div className="space-y-4">
       {interviews.map((interview) => {
-        const firstBullet = interview.results?.summary?.bullets?.[0];
+        const analysisPreview = interview.analysis
+          ? interview.analysis.split('\n').find((line) => line.trim().length > 0)
+          : null;
         return (
           <Card key={interview.id}>
             <CardContent className="pt-6">
@@ -42,9 +44,9 @@ export function Timeline({ interviews }: TimelineProps) {
                     <p className="font-medium mt-1 line-clamp-1">
                       {interview.productIdea}
                     </p>
-                    {firstBullet && (
+                    {analysisPreview && (
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                        {firstBullet}
+                        {analysisPreview}
                       </p>
                     )}
                   </div>

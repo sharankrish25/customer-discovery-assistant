@@ -9,25 +9,26 @@ interface CustomerCardProps {
   profile: CustomerProfile;
 }
 
-function getLastInterviewDate(profile: CustomerProfile): string {
-  if (!profile.interviews || profile.interviews.length === 0) return '—';
+function getLastInterviewDate(profile: CustomerProfile): Date | null {
+  if (!profile.interviews || profile.interviews.length === 0) return null;
   const dates = profile.interviews.map((i) => new Date(i.uploadedAt));
-  const latest = new Date(Math.max(...dates.map((d) => d.getTime())));
-  return latest.toLocaleDateString();
+  return new Date(Math.max(...dates.map((d) => d.getTime())));
 }
 
-function getKeyInsightSnippet(profile: CustomerProfile): string {
-  const interview = profile.interviews[0];
-  if (!interview) return '—';
-  const insightsData = interview.insights;
-  if (!insightsData || !insightsData.insights || insightsData.insights.length === 0) return '—';
-  const first = insightsData.insights[0];
-  return first.title || first.quotes?.[0]?.text || '—';
+function getAnalysisPreview(profile: CustomerProfile): string {
+  const latestInterview = profile.interviews
+    .slice()
+    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
+  if (!latestInterview || !latestInterview.analysis) {
+    return 'Analysis pending';
+  }
+  const firstLine = latestInterview.analysis.split('\n').find((line) => line.trim().length > 0);
+  return firstLine ?? 'Analysis pending';
 }
 
 export function CustomerCard({ profile }: CustomerCardProps) {
   const lastDate = getLastInterviewDate(profile);
-  const keyInsight = getKeyInsightSnippet(profile);
+  const analysisPreview = getAnalysisPreview(profile);
 
   return (
     <Link href={`/customer/${profile.id}`} className="block group">
@@ -45,11 +46,11 @@ export function CustomerCard({ profile }: CustomerCardProps) {
         <CardContent className="space-y-2">
           <p className="text-sm text-muted-foreground">
             Last interview:{' '}
-            {lastDate ? new Date(lastDate).toLocaleDateString() : '—'}
+            {lastDate ? lastDate.toLocaleDateString() : '—'}
           </p>
-          <p className="text-sm line-clamp-2">
-            <span className="font-medium">Key insight: </span>
-            {keyInsight}
+          <p className="text-sm line-clamp-3">
+            <span className="font-medium">Analysis: </span>
+            {analysisPreview}
           </p>
         </CardContent>
       </Card>
