@@ -67,12 +67,26 @@ Process:
 3. For each grouping, synthesize the key learning into ONE detailed sentence
 4. Ensure each bullet represents a synthesis that combines multiple related statements into a cohesive pattern
 
-Examples of GOOD synthesis (combining multiple statements):
-✓ "Patients face significant information overload during consultations, exemplified by conflicting dietary guidance sheets and overwhelming medical jargon, making it difficult to process critical care information or provide meaningful input on treatment decisions."
+CRITICAL EXAMPLES - Your bullets MUST look like the GOOD example:
 
-Examples of BAD (copying/paraphrasing single sentences):
-✗ "The patient received conflicting dietary guidance sheets."
-✗ "The doctor used medical jargon during the consultation."
+✓ GOOD (synthesizes multiple related statements into one cohesive pattern):
+"Patients face significant information overload during consultations, exemplified by conflicting dietary guidance sheets and overwhelming medical jargon, making it difficult to process critical care information or provide meaningful input on treatment decisions."
+
+✗ BAD (just lists separate facts from the transcript):
+"The patient received conflicting dietary guidance sheets."
+"The doctor used medical jargon during the consultation."
+"The patient felt overwhelmed."
+
+✓ ANOTHER GOOD EXAMPLE (shows pattern + evidence + impact):
+"Teacher experiences significant administrative friction in the grading process due to fragmented submission methods across multiple platforms (Google Classroom, email, physical copies), requiring approximately 30 minutes of manual file organization and spreadsheet tracking before any actual grading can begin."
+
+✗ BAD VERSION OF SAME CONTENT (just listing):
+"Teacher had essays from three different classes."
+"Students submitted through different methods."
+"Teacher spent half an hour finding files."
+
+MANDATORY STRUCTURE for each bullet:
+[Pattern/Theme] + "exemplified by/due to/as seen in" + [Specific Evidence] + "making it/requiring/resulting in" + [Impact/Consequence]
 
 Core Instruction:
 You are summarizing what was LEARNED from groupings of sentences, not what was SAID in individual sentences. Every bullet must synthesize multiple related statements into a cohesive insight that reveals a pattern.

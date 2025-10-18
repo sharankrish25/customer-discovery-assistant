@@ -401,9 +401,12 @@ export async function analyzeSummary(
     content:
       '[Output format]\n\n' +
       'Return JSON exactly matching {"summary":{"bullets":string[],"tone":"neutral","confidence":number}}. ' +
-      'Provide 3-8 bullets where EACH bullet is a detailed, comprehensive sentence that SYNTHESIZES multiple related statements from the transcript into a cohesive pattern. ' +
-      'Each bullet should combine 2-5 related sentences from the transcript and explain patterns with specific evidence (e.g., "exemplified by...", "making it difficult to..."). ' +
-      'Keep tone "neutral", set confidence between 0 and 1, and return pure JSON without markdown code fences.',
+      '\n\nCRITICAL: Provide 3-8 bullets where EACH bullet is a detailed, comprehensive sentence that SYNTHESIZES multiple related statements from the transcript into a cohesive pattern. ' +
+      '\n\nDO NOT create separate bullets for individual facts. Instead, combine them into synthesis bullets using this structure:' +
+      '\n[Pattern/Theme] + "exemplified by/due to/as seen in" + [Specific Evidence] + "making it/requiring/resulting in" + [Impact/Consequence]' +
+      '\n\nExample of CORRECT synthesis: "Teacher experiences significant administrative friction in the grading process due to fragmented submission methods across multiple platforms (Google Classroom, email, physical copies), requiring approximately 30 minutes of manual file organization and spreadsheet tracking before any actual grading can begin."' +
+      '\n\nExample of WRONG (do NOT do this): "Teacher had essays from three different classes." "Students submitted through different methods." "Teacher spent half an hour finding files."' +
+      '\n\nKeep tone "neutral", set confidence between 0 and 1, and return pure JSON without markdown code fences.',
   });
 
   try {
