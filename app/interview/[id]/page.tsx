@@ -76,6 +76,8 @@ export default function InterviewDetailPage() {
         insights: (interviewData.insights.insights.map((item) => ({
           insight: item.title,
           supportingQuote: item.quotes[0]?.text || '',
+          type: item.type,
+          whyItMatters: item.why_it_matters,
         })) as InsightItem[]),
         alignment: ({
           supports: interviewData.alignment.alignment.supports.map(s => s.insight_title),

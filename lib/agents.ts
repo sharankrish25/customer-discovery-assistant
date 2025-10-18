@@ -22,8 +22,9 @@ const QuoteSchema = z.object({
 
 const InsightItemSchema = z.object({
   title: z.string(),
-  type: z.enum(['pain', 'need', 'motivation']),
+  type: z.enum(['existing_process', 'motivation', 'unmet_need', 'pain_magnitude', 'past_attempt']),
   quotes: z.array(QuoteSchema).min(1),
+  why_it_matters: z.string(),
   evidence_level: z.enum(['low', 'med', 'high']),
 });
 
@@ -95,37 +96,40 @@ const MOCK_SUMMARY: SummaryOutput = {
 const MOCK_INSIGHTS: InsightsOutput = {
   insights: [
     {
-      title: 'Time-consuming manual aggregation process',
-      type: 'pain',
+      title: 'Manual weekly consolidation routine',
+      type: 'existing_process',
       quotes: [
         {
           text: 'I spend probably 3-4 hours a week just trying to consolidate it all into a spreadsheet',
           start_sec: 45,
         },
       ],
+      why_it_matters: 'Shows significant recurring time investment in manual data aggregation, indicating a strong need for automation.',
       evidence_level: 'high',
     },
     {
-      title: 'Inability to quantify customer demand accurately',
-      type: 'pain',
+      title: 'Unable to answer demand questions from leadership',
+      type: 'pain_magnitude',
       quotes: [
         {
           text: 'The CEO asked me "how many customers asked for X" and I genuinely didn\'t know the exact number',
           start_sec: 102,
         },
       ],
+      why_it_matters: 'Impacts credibility with leadership and ability to make data-driven prioritization decisions.',
       evidence_level: 'high',
     },
     {
-      title: 'Need for automation and AI-powered insights',
-      type: 'need',
+      title: 'Desire for automated categorization',
+      type: 'unmet_need',
       quotes: [
         {
           text: 'ideally it would just automatically gather everything and categorize it. Show me trends, maybe use AI or something',
           start_sec: 148,
         },
       ],
-      evidence_level: 'low',
+      why_it_matters: 'Expresses a clear gap between current manual process and desired automated solution.',
+      evidence_level: 'med',
     },
   ],
   confidence: 0.82,
@@ -180,22 +184,57 @@ export async function analyzeSummary(
     return MOCK_SUMMARY;
   }
 
-  const system = `You are a customer discovery analyst. Produce concise, factual learnings from interview transcripts. Avoid opinions. Return JSON only, no prose, no code fences.`;
+  const system = `You are a specialized customer discovery interview summarizer designed for early-stage startup founders.
+
+Your job is to produce a concise, high-signal summary of an interview transcript so the founder can quickly understand what was actually learned — not what was "said nicely" or speculated about.
+
+Your summary MUST focus on:
+- Pain points (real struggles, friction, workarounds).
+- Needs (what they implicitly or explicitly want to exist).
+- Current behaviors (what they actually do today).
+- Actionable takeaways (what this means for the founder building a solution).
+
+Your summary MUST avoid:
+- Opinions or compliments ("that sounds great").
+- Hypotheticals or future predictions ("I would…", "I might…").
+- Fluff / generic statements.
+- Paraphrasing vague sentiment without concrete evidence.
+
+Your target reader:
+A young founder learning PMF who needs signal, not noise. The summary should help them decide what to test next.
+
+Rules:
+- 3–8 bullets only.
+- Each bullet must reflect evidence-backed content from the transcript.
+- Use neutral tone (no persuasion).
+- Do NOT include code fences in your response.
+- Return JSON only, no prose.`;
 
   const truncatedTranscript = truncateForLLM(transcript);
   const truncatedIdea = truncateForLLM(idea, 500);
 
-  const user = `IDEA:
+  const user = `PRODUCT IDEA:
 ${truncatedIdea}
 
-TRANSCRIPT:
+INTERVIEW TRANSCRIPT:
 ${truncatedTranscript}
 
 TASK:
+Analyze the transcript and produce a summary that helps the founder understand:
+1. What pain points were revealed (real struggles, not opinions)
+2. What needs were expressed (implicit or explicit)
+3. What current behaviors were described (what they actually do today)
+4. What actionable takeaways exist for the founder
+
 Return JSON exactly matching this structure:
 { "summary": { "bullets": string[], "tone":"neutral", "confidence": 0..1 } }
 
-Use only transcript evidence. Each bullet should be a complete, factual statement about what was learned.`;
+Requirements:
+- 3-8 bullets maximum
+- Each bullet must be evidence-backed from the transcript
+- Focus on signal, not noise
+- Avoid hypotheticals, opinions, or fluff
+- Neutral, factual tone only`;
 
   try {
     const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
@@ -229,30 +268,82 @@ export async function extractInsights(transcript: string): Promise<InsightsOutpu
     return MOCK_INSIGHTS;
   }
 
-  const system = `Extract only evidence-backed pains/needs/motivations with verbatim quotes. Return JSON only, no prose, no code fences.`;
+  const system = `You are an Insight Extraction Agent for customer discovery interviews.
+Your job is to extract the most meaningful, evidence-backed insights from a transcript to help a young startup founder understand what is truly going on in the customer's world.
+
+You DO NOT summarize the conversation.
+You surface what matters — with quotes.
+
+You MUST extract insights related to:
+
+Category | Definition
+--- | ---
+Existing processes & behaviors | What the customer ACTUALLY does today; workaround, hacks, routines
+Motivations & goals | What they're trying to achieve and why it matters
+Unmet needs & gaps | What is missing, blocked, or painful
+Magnitude of pain | How costly/urgent/recurring the issue is
+Past attempts | What they tried before & why it failed
+
+You MUST anchor every insight to the transcript using at least one verbatim quote.
+
+No quote = not an insight.
+Quotes should be short and specific, not paraphrased.
+
+Keep only high-signal insights (max 8–12).
+
+Titles must be short (≤ 12 words).
+
+why_it_matters should connect the quote to the business context (1–2 short sentences).
+
+evidence_level depends on:
+- low = vague or brief mention
+- med = repeated or clearly described
+- high = emotional, urgent, or has a workaround cost
+
+If the transcript is weak (little evidence), return fewer insights and lower confidence.
+
+If multiple quotes reinforce the same point, group them under one insight.
+
+Never hypothesize outside what was spoken.
+
+Return JSON only, no prose, no code fences.`;
 
   const truncatedTranscript = truncateForLLM(transcript);
 
-  const user = `TRANSCRIPT:
+  const user = `INTERVIEW TRANSCRIPT:
 ${truncatedTranscript}
 
 TASK:
+Extract high-signal, evidence-backed insights from this transcript.
+
 Return JSON exactly matching this structure:
 {
   "insights":[{
-    "title":"",
-    "type":"pain|need|motivation",
-    "quotes":[{"text":"","start_sec":null}],
+    "title":"short title (≤12 words)",
+    "type":"existing_process|motivation|unmet_need|pain_magnitude|past_attempt",
+    "quotes":[{"text":"verbatim quote","start_sec":null}],
+    "why_it_matters":"1-2 sentences connecting quote to business context",
     "evidence_level":"low|med|high"
   }],
   "confidence": 0..1
 }
 
-Each insight MUST include ≥1 verbatim quote from the transcript.
-- "pain": Problems, frustrations, obstacles the customer faces
-- "need": Explicit requirements or desires expressed
-- "motivation": Underlying drivers, emotions, or goals
-- evidence_level: "high" = multiple quotes + specific examples, "med" = one clear quote, "low" = implied or weak evidence`;
+Requirements:
+- Each insight MUST have at least one verbatim quote from the transcript
+- Max 8-12 insights (keep only high-signal)
+- Titles must be ≤12 words
+- Quotes should be short and specific, not paraphrased
+- Group multiple quotes under one insight if they reinforce the same point
+- evidence_level: low=vague mention, med=clearly described/repeated, high=emotional/urgent/has workaround cost
+- If transcript is weak, return fewer insights and lower confidence
+- Never hypothesize beyond what was said
+
+Categories:
+- existing_process: What they ACTUALLY do today (workarounds, hacks, routines)
+- motivation: What they're trying to achieve and why it matters
+- unmet_need: What is missing, blocked, or painful
+- pain_magnitude: How costly/urgent/recurring the issue is
+- past_attempt: What they tried before & why it failed`;
 
   try {
     const response = await callClaude(MODEL, system, user, AGENT_CONFIG);

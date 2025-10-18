@@ -23,6 +23,8 @@ export interface SummaryOutput {
 export interface InsightItem {
   insight: string;
   supportingQuote: string;
+  type?: string;
+  whyItMatters?: string;
 }
 
 // Simplified AlignmentOutput for UI components
