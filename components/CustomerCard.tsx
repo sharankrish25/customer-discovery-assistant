@@ -3,31 +3,32 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CustomerProfile } from '@/types/models';
+import type { CustomerProfile } from '@/types/models';
 
 interface CustomerCardProps {
   profile: CustomerProfile;
 }
 
 function getLastInterviewDate(profile: CustomerProfile): string {
-  if (!profile.interviews || profile.interviews.length === 0) return '—';
-  const dates = profile.interviews.map((i) => new Date(i.uploadedAt));
-  const latest = new Date(Math.max(...dates.map((d) => d.getTime())));
-  return latest.toLocaleDateString();
+  if (profile.interviews.length === 0) return '—';
+  const latest = Math.max(
+    ...profile.interviews.map((interview) => new Date(interview.uploadedAt).getTime())
+  );
+  return new Date(latest).toLocaleDateString();
 }
 
-function getKeyInsightSnippet(profile: CustomerProfile): string {
+function getAnalysisSnippet(profile: CustomerProfile): string {
   const interview = profile.interviews[0];
-  if (!interview) return '—';
-  const insightsData = interview.insights;
-  if (!insightsData || !insightsData.insights || insightsData.insights.length === 0) return '—';
-  const first = insightsData.insights[0];
-  return first.title || first.quotes?.[0]?.text || '—';
+  if (!interview?.analysis) {
+    return 'No analysis available yet.';
+  }
+  const text = interview.analysis.analysis;
+  return text.length > 120 ? `${text.slice(0, 117)}…` : text;
 }
 
 export function CustomerCard({ profile }: CustomerCardProps) {
   const lastDate = getLastInterviewDate(profile);
-  const keyInsight = getKeyInsightSnippet(profile);
+  const snippet = getAnalysisSnippet(profile);
 
   return (
     <Link href={`/customer/${profile.id}`} className="block group">
@@ -44,12 +45,11 @@ export function CustomerCard({ profile }: CustomerCardProps) {
         </CardHeader>
         <CardContent className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            Last interview:{' '}
-            {lastDate ? new Date(lastDate).toLocaleDateString() : '—'}
+            Last interview: {lastDate}
           </p>
-          <p className="text-sm line-clamp-2">
-            <span className="font-medium">Key insight: </span>
-            {keyInsight}
+          <p className="text-sm line-clamp-3">
+            <span className="font-medium">Analysis snapshot: </span>
+            {snippet}
           </p>
         </CardContent>
       </Card>

@@ -1,11 +1,4 @@
-import type {
-  SummaryOutput,
-  InsightsOutput,
-  AlignmentOutput,
-  CoachingOutput,
-  BetterQuestionsOutput,
-  FollowUpEmailOutput,
-} from "./ai";
+import type { AnalysisResult } from "./ai";
 
 export interface Interview {
   id: string;
@@ -13,14 +6,7 @@ export interface Interview {
   uploadedAt: Date;
   transcript: string;
   productIdea: string;
-  summary: SummaryOutput | null;
-  insights: InsightsOutput | null;
-  alignment: AlignmentOutput | null;
-  coaching: CoachingOutput | null;
-  betterQuestions: BetterQuestionsOutput | null;
-  followUpEmail: FollowUpEmailOutput | null;
-  analysisStatus: "pending" | "processing" | "complete" | "error";
-  error?: string;
+  analysis: AnalysisResult | null;
 }
 
 export interface CustomerProfile {
@@ -33,3 +19,5 @@ export interface CustomerProfile {
   updatedAt: Date;
   interviews: Interview[];
 }
+
+export type Customer = CustomerProfile;

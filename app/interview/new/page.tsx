@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
+import { generateAnalysis } from '@/lib/analysis';
 
 export default function NewInterviewPage() {
   const router = useRouter();
@@ -17,7 +18,6 @@ export default function NewInterviewPage() {
 
   const addCustomer = useStore((state) => state.addCustomer);
   const addInterview = useStore((state) => state.addInterview);
-  const updateInterview = useStore((state) => state.updateInterview);
   const getCustomerByName = useStore((state) => state.getCustomerByName);
 
   const [formData, setFormData] = useState({
@@ -27,17 +27,17 @@ export default function NewInterviewPage() {
     demographics: '',
     productIdea: '',
     transcript: '',
-    interviewDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+    interviewDate: new Date().toISOString().split('T')[0],
   });
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
 
     const trimmedTranscript = formData.transcript.trim();
     const trimmedProductIdea = formData.productIdea.trim();
 
     if (!trimmedTranscript) {
-      toast.error('Transcript is required before running analysis.');
+      toast.error('Transcript is required before generating an analysis.');
       return;
     }
 
@@ -49,7 +49,6 @@ export default function NewInterviewPage() {
     setLoading(true);
 
     try {
-      // Find or create customer profile
       const customer = getCustomerByName(formData.name);
       let customerId: string;
 
@@ -70,54 +69,21 @@ export default function NewInterviewPage() {
         toast.info(`Using existing customer profile: ${formData.name}`);
       }
 
-      // Create interview record
       const interviewId = `int-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const analysis = generateAnalysis(trimmedTranscript, trimmedProductIdea);
+
       addInterview(customerId, {
         id: interviewId,
         uploadedAt: new Date(formData.interviewDate),
         transcript: trimmedTranscript,
         productIdea: trimmedProductIdea,
-        summary: null,
-        insights: null,
-        alignment: null,
-        coaching: null,
-        betterQuestions: null,
-        followUpEmail: null,
-        analysisStatus: 'pending',
-      });
-
-      // Call API to analyze interview
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          interviewId,
-          transcript: trimmedTranscript,
-          productIdea: trimmedProductIdea,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!result.ok) {
-        const errorMsg = result.error?.code === '429'
-          ? 'AI service is busy — please try again in a moment'
-          : result.error?.message || 'Failed to analyze interview';
-        throw new Error(errorMsg);
-      }
-
-      // Update the interview with the analysis results from the API
-      updateInterview(interviewId, {
-        summary: result.data.summary,
-        insights: result.data.insights,
-        alignment: result.data.alignment,
-        analysisStatus: 'complete',
+        analysis,
       });
 
       toast.success('Interview analyzed successfully!');
       router.push(`/interview/${interviewId}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create and analyze interview';
+      const message = error instanceof Error ? error.message : 'Failed to create interview';
       toast.error(message);
       console.error(error);
     } finally {
@@ -134,7 +100,7 @@ export default function NewInterviewPage() {
         <div>
           <h1 className="text-3xl font-bold">New Interview</h1>
           <p className="text-muted-foreground">
-            Record a new customer discovery interview
+            Record a new customer discovery interview and generate a quick analysis.
           </p>
         </div>
       </div>
@@ -145,7 +111,6 @@ export default function NewInterviewPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Customer Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Customer Information</h3>
 
@@ -200,6 +165,23 @@ export default function NewInterviewPage() {
                   rows={3}
                 />
               </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Interview</h3>
+
+              <div className="space-y-2">
+                <Label htmlFor="productIdea">Product Idea *</Label>
+                <Input
+                  id="productIdea"
+                  required
+                  value={formData.productIdea}
+                  onChange={(e) =>
+                    setFormData({ ...formData, productIdea: e.target.value })
+                  }
+                  placeholder="e.g., AI-powered customer interview analysis tool"
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="interviewDate">Interview Date *</Label>
@@ -213,25 +195,6 @@ export default function NewInterviewPage() {
                   }
                 />
               </div>
-            </div>
-
-            {/* Interview Content */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Interview Content</h3>
-
-              <div className="space-y-2">
-                <Label htmlFor="productIdea">Product Idea / Vision Being Tested *</Label>
-                <Textarea
-                  id="productIdea"
-                  required
-                  value={formData.productIdea}
-                  onChange={(e) =>
-                    setFormData({ ...formData, productIdea: e.target.value })
-                  }
-                  placeholder="e.g., AI-powered customer interview analysis tool"
-                  rows={3}
-                />
-              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="transcript">Transcript *</Label>
@@ -242,22 +205,18 @@ export default function NewInterviewPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, transcript: e.target.value })
                   }
-                  placeholder="Paste the interview transcript here..."
-                  rows={10}
+                  placeholder="Paste the full transcript here..."
+                  rows={12}
                 />
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <Button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700">
-                {loading ? 'Analyzing...' : 'Create & Analyze Interview'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-              >
+            <div className="flex justify-end gap-4">
+              <Button type="button" variant="outline" onClick={() => router.back()}>
                 Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Generating Analysis…' : 'Create Interview'}
               </Button>
             </div>
           </form>
