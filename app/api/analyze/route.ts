@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { useStore } from "@/lib/store";
-import { analyzeInterviewMock } from "@/lib/anthropic";
+import { runAutoAnalysis } from "@/lib/agents";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      // Call mock analysis
-      const { summary, insights, alignment } = await analyzeInterviewMock(
-        interview.productIdea,
-        interview.transcript
+      // Call auto-analysis (uses real Claude API or mock if no API key)
+      const { summary, insights, alignment } = await runAutoAnalysis(
+        interview.transcript,
+        interview.productIdea
       );
 
       // Update interview with results

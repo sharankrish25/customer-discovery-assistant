@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { useStore } from "@/lib/store";
-import { generateQuestionsMock } from "@/lib/anthropic";
+import { generateQuestionsMock } from "@/lib/anthropic-legacy";
 
 export async function POST(request: NextRequest) {
   try {
