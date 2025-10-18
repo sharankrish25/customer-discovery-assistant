@@ -1,3 +1,7 @@
+# customer-discovery-assistant
+
+A customer discovery interview assistant that helps early-stage founders extract REAL insights from conversations, understand if the interview actually validated anything, and improve how they interview over time — all while organizing each interview into a reusable customer profile.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
