@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { callClaude, extractJson } from './anthropic';
+import { callClaude, extractJson, truncateForLLM } from './anthropic';
 import { CoachingSchema, BetterQuestionsSchema, FollowupSchema } from './zod-advanced';
 import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput, AlignmentOutput } from '@/types/ai';
 
@@ -8,8 +8,21 @@ import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput, Alignm
 // Constants
 // ============================================================================
 
-const SONNET_MODEL = 'claude-3-5-sonnet-20241022';
+// Use Sonnet 4.5 for coaching (quality matters)
+const SONNET_MODEL = 'claude-sonnet-4-20250514';
+// Use Haiku for questions and emails (speed matters)
 const HAIKU_MODEL = 'claude-3-5-haiku-20241022';
+
+// Model-specific configurations
+const SONNET_CONFIG = {
+  maxTokens: 1200,
+  temperature: 0.2,
+};
+
+const HAIKU_CONFIG = {
+  maxTokens: 700,
+  temperature: 0.2,
+};
 
 // ============================================================================
 // Mock Data (for when API key is missing)
@@ -97,7 +110,7 @@ function loadCoachingSystemPrompt(): string {
     return readFileSync(path, 'utf-8');
   } catch (error) {
     console.warn('Could not load coaching-system.txt, using inline version');
-    return `You are an interview coach for early-stage founders. Evaluate transcripts using FOUR BOOKS, producing JSON only (no prose):
+    return `You are an interview coach for early-stage founders. Evaluate transcripts using FOUR BOOKS, producing JSON only (no prose, no code fences):
 1) Talking to Humans → real stories, correct target, deep context.
    Detect: too-broad, segment-mismatch, no-evidence-ask, missed-probe.
 2) The Mom Test → past behavior, no hypotheticals, no pitching, avoid compliments/opinions.
@@ -108,9 +121,10 @@ function loadCoachingSystemPrompt(): string {
    Detect: no-evidence-ask, missed-probe (re next experiment).
 
 Rules:
-- Output spans <= 180 chars, precise boundaries via start_char/end_char char indices against the provided transcript string.
-- Each highlight MUST have exactly ONE 'book' and ONE 'reason' from allowed sets.
-- Also output 2–6 advice items (what_to_improve + example_rewrite) mapped to a book.
+- Limit highlights to 20 maximum, prioritize worst issues
+- Output spans <= 180 chars, precise boundaries via start_char/end_char char indices against the provided transcript string
+- Each highlight MUST have exactly ONE 'book' and ONE 'reason' from allowed sets
+- Also output 2–6 advice items (what_to_improve + example_rewrite) mapped to a book
 Return JSON matching schema:
 { "highlights":[{ "span_text":"", "reason":"...", "book":"...", "suggestion":"", "start_char":0, "end_char":0 }], "advice":[{ "book":"...", "what_to_improve":"", "example_rewrite":"" }] }`;
   }
@@ -140,13 +154,15 @@ export async function analyzeQuality(transcript: string): Promise<CoachingOutput
   }
 
   const system = loadCoachingSystemPrompt();
-  const user = `TRANSCRIPT:
-${transcript}
+  const truncatedTranscript = truncateForLLM(transcript);
 
-TASK: Return JSON per schema.`;
+  const user = `TRANSCRIPT:
+${truncatedTranscript}
+
+TASK: Return JSON per schema. Limit highlights to 20 max.`;
 
   try {
-    const response = await callClaude(SONNET_MODEL, system, user);
+    const response = await callClaude(SONNET_MODEL, system, user, SONNET_CONFIG);
     const parsed = extractJson(response);
     return CoachingSchema.parse(parsed);
   } catch (error) {
@@ -183,7 +199,8 @@ export async function generateQuestions(
 - Talking to Humans (stories)
 - The Mom Test (avoid hypotheticals/pitch; anchor past)
 - Lean Customer Development (frequency, workflow, alternatives, willingness/constraints)
-Return JSON {questions:[{text, linked_to, why (TH/LCD/TMT labels), style:"past-behavior"}]}`;
+Return JSON only, no prose, no code fences.
+{questions:[{text, linked_to, why (TH/LCD/TMT labels), style:"past-behavior"}]}`;
 
   const coachingGaps = coaching
     ? coaching.advice.map(a => `${a.book}: ${a.what_to_improve}`).join('\n')
@@ -198,7 +215,7 @@ ${coachingGaps}
 TASK: Generate 3-12 past-behavior questions that dig deeper into insights or address coaching gaps. Return JSON matching schema.`;
 
   try {
-    const response = await callClaude(HAIKU_MODEL, system, user);
+    const response = await callClaude(HAIKU_MODEL, system, user, HAIKU_CONFIG);
     const parsed = extractJson(response);
     return BetterQuestionsSchema.parse(parsed);
   } catch (error) {
@@ -238,7 +255,10 @@ export async function generateEmail(
   }
 
   const system = `Draft a concise, bias-free follow-up email that references one quote and proposes exactly ONE clear next step (commitment): e.g., 15m call / prototype trial / intro / share anonymized data sample. No pitching. Max 120 words.
-Return JSON {subject, body}`;
+Return JSON only, no prose, no code fences.
+{subject, body}`;
+
+  const truncatedQuote = truncateForLLM(insight.quote, 300);
 
   const user = `CUSTOMER:
 Name: ${profile.name}
@@ -246,7 +266,7 @@ Role: ${profile.role || 'Not specified'}
 
 KEY_PAIN/QUOTE:
 Insight: ${insight.title}
-Quote: "${insight.quote}"
+Quote: "${truncatedQuote}"
 
 DESIRED_COMMITMENT:
 ${desiredCommitment}
@@ -254,7 +274,7 @@ ${desiredCommitment}
 TASK: Generate a follow-up email (max 120 words) that references the quote and proposes the commitment. Be warm but professional, no sales pitch. Return JSON matching schema.`;
 
   try {
-    const response = await callClaude(HAIKU_MODEL, system, user);
+    const response = await callClaude(HAIKU_MODEL, system, user, HAIKU_CONFIG);
     const parsed = extractJson(response);
     return FollowupSchema.parse(parsed);
   } catch (error) {

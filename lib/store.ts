@@ -4,6 +4,9 @@ import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput } from 
 
 interface StoreState {
   customers: CustomerProfile[];
+  // Busy state tracking for concurrent request prevention
+  busyMap: Record<string, boolean>;
+
   addCustomer: (customer: Omit<CustomerProfile, "interviews">) => string;
   addInterview: (customerId: string, interview: Omit<Interview, "customerId">) => string;
   updateInterview: (interviewId: string, patch: Partial<Interview>) => void;
@@ -16,11 +19,17 @@ interface StoreState {
   getInterviewsByCustomerId: (customerId: string) => Interview[];
   getCustomerById: (customerId: string) => CustomerProfile | undefined;
   getCustomerByName: (name: string) => CustomerProfile | undefined;
+
+  // Busy state management
+  setBusy: (id: string, busy: boolean) => void;
+  isBusy: (id: string) => boolean;
+
   seedMock: () => void;
 }
 
 export const useStore = create<StoreState>((set, get) => ({
   customers: [],
+  busyMap: {},
 
   addCustomer: (customer) => {
     const customerId = customer.id;
@@ -122,6 +131,19 @@ export const useStore = create<StoreState>((set, get) => ({
 
   updateInterviewFollowup: (interviewId, followup) => {
     get().updateInterview(interviewId, { followUpEmail: followup });
+  },
+
+  setBusy: (id, busy) => {
+    set((state) => ({
+      busyMap: {
+        ...state.busyMap,
+        [id]: busy,
+      },
+    }));
+  },
+
+  isBusy: (id) => {
+    return get().busyMap[id] || false;
   },
 
   seedMock: () => {
