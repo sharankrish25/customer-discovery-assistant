@@ -103,6 +103,9 @@ export default function NewInterviewPage() {
         analysis,
         analysisStatus: 'complete',
         error: undefined,
+        summary: result.data?.summary,
+        insights: result.data?.insights,
+        alignment: result.data?.alignment,
       });
 
       toast.success('Interview analyzed successfully!');

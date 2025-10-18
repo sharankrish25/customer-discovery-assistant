@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         ok: true,
         data: {
+          analysis: summary.summary.bullets.join('\n'), // Keep backward compatibility
           summary,
           insights,
           alignment,

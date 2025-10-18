@@ -1,86 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callClaude, loadPrompt, parseClaudeJSON } from "@/lib/anthropic";
-
-interface Question {
-  text: string;
-  linked_to: string;
-  why: string;
-  style: "past-behavior" | "quantification" | "prioritization" | "context" | "gap-filling";
-}
-
-interface QuestionsOutput {
-  questions: Question[];
-}
+import { callClaude, loadPrompt } from "@/lib/anthropic";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { transcript, productIdea, analysis, coachingFeedback } = body;
+    const { transcript, productIdea } = body;
 
-    if (!transcript || typeof transcript !== "string") {
+    if (!transcript || !productIdea) {
       return NextResponse.json(
-        { error: "transcript is required and must be a string" },
+        { ok: false, error: { code: "VALIDATION_ERR", message: "Missing required fields" } },
         { status: 400 }
       );
     }
 
-    if (!productIdea || typeof productIdea !== "string") {
+    const system = loadPrompt('questions-generator');
+    const user = `Generate follow-up questions based on this customer discovery interview:
+
+PRODUCT IDEA: ${productIdea}
+
+TRANSCRIPT:
+${transcript}
+
+Generate 3-6 sharp, actionable follow-up questions that will help the founder make better product decisions.`;
+
+    try {
+      const response = await callClaude(system, user, {
+        model: 'claude-3-5-sonnet-20241022',
+        maxTokens: 1500,
+        temperature: 0.3,
+      });
+
+      const parsed = JSON.parse(response);
+      
+      return NextResponse.json({
+        ok: true,
+        data: {
+          questions: parsed.questions || [],
+        },
+      });
+    } catch (error) {
+      console.error("Next questions generation error:", error);
       return NextResponse.json(
-        { error: "productIdea is required and must be a string" },
-        { status: 400 }
+        {
+          ok: false,
+          error: {
+            code: "AI_ERR",
+            message: "Failed to generate next questions",
+          },
+        },
+        { status: 502 }
       );
     }
-
-    // Load the questions generator prompt
-    const systemPrompt = loadPrompt("questions-generator");
-
-    // Build user message with all context
-    const userMessage = `
-Product Idea: ${productIdea.trim()}
-
-Interview Analysis:
-${analysis || "No analysis provided yet."}
-
-${coachingFeedback ? `Coaching Feedback:\n${JSON.stringify(coachingFeedback, null, 2)}\n` : ""}
-
-Interview Transcript:
-"""
-${transcript.trim()}
-"""
-
-Generate 3-6 follow-up questions that will help validate assumptions and deepen understanding.
-`.trim();
-
-    // Call Claude
-    const response = await callClaude(systemPrompt, userMessage);
-
-    // Parse JSON response
-    const questions = parseClaudeJSON<QuestionsOutput>(response);
-
-    // Validate structure
-    if (!Array.isArray(questions.questions)) {
-      throw new Error("Invalid questions output structure");
-    }
-
-    // Validate we got 3-6 questions
-    if (questions.questions.length < 3 || questions.questions.length > 6) {
-      console.warn(`Got ${questions.questions.length} questions, expected 3-6`);
-    }
-
-    return NextResponse.json({
-      ok: true,
-      data: questions,
-    });
   } catch (error) {
-    console.error("Next questions API error:", error);
-
-    const message =
-      error instanceof Error ? error.message : "Failed to generate follow-up questions";
-
+    console.error("Next questions route error:", error);
     return NextResponse.json(
       {
         ok: false,
-        error: { message },
+        error: {
+          code: "SERVER_ERR",
+          message: "Failed to generate next questions",
+        },
       },
       { status: 500 }
     );
