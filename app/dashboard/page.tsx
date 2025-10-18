@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,60 +13,67 @@ import {
 } from '@/components/ui/select';
 import { CustomerCard } from '@/components/CustomerCard';
 import { NoCustomers } from '@/components/EmptyStates/NoCustomers';
-import { getProfiles } from '@/lib/storage';
-import { CustomerProfile } from '@/types/customer';
+import { useStore } from '@/lib/store';
+import { toast } from 'sonner';
 
 export default function DashboardPage() {
-  const [profiles, setProfiles] = useState<CustomerProfile[]>([]);
+  const customers = useStore((state) => state.customers);
+  const seedMock = useStore((state) => state.seedMock);
+
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-    setProfiles(getProfiles());
-  }, []);
+  const handleSeedDemo = () => {
+    seedMock();
+    toast.success('Demo data loaded!');
+  };
 
   const filtered = useMemo(() => {
-    let result = profiles;
+    let result = customers;
 
     // Filter by stakeholder type
     if (filter !== 'All') {
       result = result.filter((p) => p.stakeholderType === filter);
     }
 
-    // Search by name, role, or most recent productIdea
+    // Search by name or demographics
     if (search.trim()) {
       const query = search.toLowerCase();
       result = result.filter((p) => {
         const nameMatch = p.name.toLowerCase().includes(query);
-        const roleMatch = p.role?.toLowerCase().includes(query);
-        const ideaMatch = p.interviews[0]?.productIdea
-          .toLowerCase()
-          .includes(query);
-        return nameMatch || roleMatch || ideaMatch;
+        const demoMatch = p.demographics?.toLowerCase().includes(query);
+        const typeMatch = p.stakeholderType.toLowerCase().includes(query);
+        return nameMatch || demoMatch || typeMatch;
       });
     }
 
     return result;
-  }, [profiles, search, filter]);
-
-  if (!mounted) {
-    return null;
-  }
+  }, [customers, search, filter]);
 
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <Button asChild>
-            <Link href="/interview/new">Upload Interview</Link>
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/">← Home</Link>
+            </Button>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+          </div>
+          <div className="flex gap-2">
+            {customers.length === 0 && (
+              <Button onClick={handleSeedDemo} variant="outline">
+                Load Demo Data
+              </Button>
+            )}
+            <Button asChild>
+              <Link href="/interview/new">New Interview</Link>
+            </Button>
+          </div>
         </div>
 
-        {profiles.length > 0 && (
+        {customers.length > 0 && (
           <div className="flex flex-col sm:flex-row gap-4">
             <Input
               placeholder="Search by name, role, or product idea..."
@@ -92,14 +99,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Results Count */}
-      {profiles.length > 0 && (
+      {customers.length > 0 && (
         <p className="text-sm text-muted-foreground mb-4">
-          Showing {filtered.length} of {profiles.length} customers
+          Showing {filtered.length} of {customers.length} customers
         </p>
       )}
 
       {/* Cards Grid */}
-      {profiles.length === 0 ? (
+      {customers.length === 0 ? (
         <NoCustomers />
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">

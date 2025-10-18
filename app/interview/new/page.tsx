@@ -2,23 +2,22 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import {
-  getProfiles,
-  saveProfile,
-  upsertInterview,
-  saveInterview,
-} from '@/lib/storage';
-import { CustomerProfile, InterviewRecord } from '@/types/customer';
+import { useStore } from '@/lib/store';
 
 export default function NewInterviewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  const addCustomer = useStore((state) => state.addCustomer);
+  const addInterview = useStore((state) => state.addInterview);
+  const getCustomerByName = useStore((state) => state.getCustomerByName);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -26,6 +25,7 @@ export default function NewInterviewPage() {
     demographics: '',
     productIdea: '',
     transcript: '',
+    interviewDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
   });
 
   const handleSubmit = async (e: FormEvent) => {
@@ -33,134 +33,81 @@ export default function NewInterviewPage() {
     setLoading(true);
 
     try {
-      // Guarded import for analysis
-      let runAutoAnalysis: (
-        transcript: string,
-        productIdea: string
-      ) => Promise<any>;
-      try {
-        const agents = await import('@/lib/agents');
-        runAutoAnalysis = agents.runAutoAnalysis;
-      } catch {
-        runAutoAnalysis = async (t, i) => ({
-          summary: {
-            summary: { bullets: ['Mock summary'], confidence: 0.7 },
-          },
-          insights: {
-            insights: [
-              {
-                title: 'Mock pain',
-                type: 'pain',
-                quotes: [{ text: 'example', start_sec: null }],
-                evidence_level: 'med' as const,
-              },
-            ],
-            confidence: 0.7,
-          },
-          alignment: {
-            alignment: { supports: [], contradicts: [], neutral: [] },
-            confidence: 0.7,
-          },
-        });
-      }
-
-      // Run analysis
-      const analysisResult = await runAutoAnalysis(
-        formData.transcript,
-        formData.productIdea
-      );
-
       // Find or create customer profile
-      const profiles = getProfiles();
-      let profile = profiles.find((p) => p.name === formData.name);
+      let customer = getCustomerByName(formData.name);
       let customerId: string;
 
-      if (!profile) {
-        customerId = `cust_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        profile = {
+      if (!customer) {
+        customerId = `cust-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        addCustomer({
           id: customerId,
           name: formData.name,
           stakeholderType: formData.stakeholderType,
           demographics: formData.demographics,
-          role: undefined,
-          interviews: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        saveProfile(profile);
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
         toast.success(`Created new customer profile: ${formData.name}`);
       } else {
-        customerId = profile.id;
+        customerId = customer.id;
         toast.info(`Using existing customer profile: ${formData.name}`);
       }
 
       // Create interview record
-      const interviewId = `interview_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      const interview: InterviewRecord = {
+      const interviewId = `int-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      addInterview(customerId, {
         id: interviewId,
-        customerId,
-        productIdea: formData.productIdea,
+        uploadedAt: new Date(formData.interviewDate),
         transcript: formData.transcript,
-        date: new Date().toISOString(),
-        results: {
-          summary: {
-            bullets: analysisResult.summary.summary.bullets,
-            confidence: analysisResult.summary.summary.confidence,
-          },
-          insights: {
-            items: analysisResult.insights.insights.map((i: any) => ({
-              title: i.title,
-              type: i.type,
-              quotes: i.quotes.map((q: any) => q.text),
-              evidence: i.evidence_level,
-            })),
-            confidence: analysisResult.insights.confidence,
-          },
-          alignment: {
-            supports: analysisResult.alignment.alignment.supports.map(
-              (s: any) => s.quote
-            ),
-            contradicts: analysisResult.alignment.alignment.contradicts.map(
-              (c: any) => c.quote
-            ),
-            neutral: analysisResult.alignment.alignment.neutral.map(
-              (n: any) => n.rationale
-            ),
-            confidence: analysisResult.alignment.confidence,
-          },
-        },
-      };
+        productIdea: formData.productIdea,
+        summary: null,
+        insights: null,
+        alignment: null,
+        coaching: null,
+        betterQuestions: null,
+        followUpEmail: null,
+        analysisStatus: 'pending',
+      });
 
-      // Save to localStorage
-      upsertInterview(customerId, interview);
-      saveInterview(interviewId, interview);
+      // Call API to analyze interview
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interviewId }),
+      });
+
+      const result = await response.json();
+
+      if (!result.ok) {
+        const errorMsg = result.error?.code === '429'
+          ? 'AI service is busy — please try again in a moment'
+          : result.error?.message || 'Failed to analyze interview';
+        throw new Error(errorMsg);
+      }
 
       toast.success('Interview analyzed successfully!');
-      setTimeout(() => {
-        toast.info('Saved to customer profile', {
-          description: 'View on Dashboard',
-          action: {
-            label: 'Dashboard',
-            onClick: () => router.push('/dashboard'),
-          },
-        });
-      }, 500);
-
       router.push(`/interview/${interviewId}`);
     } catch (error) {
-      toast.error('Failed to create and analyze interview');
+      const message = error instanceof Error ? error.message : 'Failed to create and analyze interview';
+      toast.error(message);
       console.error(error);
+    } finally {
       setLoading(false);
     }
   };
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">New Interview</h1>
-        <p className="text-muted-foreground">
-          Record a new customer discovery interview
-        </p>
+      <div className="mb-8 flex items-center gap-4">
+        <Button asChild variant="outline" size="sm">
+          <Link href="/dashboard">← Dashboard</Link>
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">New Interview</h1>
+          <p className="text-muted-foreground">
+            Record a new customer discovery interview
+          </p>
+        </div>
       </div>
 
       <Card>
@@ -211,6 +158,19 @@ export default function NewInterviewPage() {
                   rows={3}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="interviewDate">Interview Date *</Label>
+                <Input
+                  id="interviewDate"
+                  type="date"
+                  required
+                  value={formData.interviewDate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, interviewDate: e.target.value })
+                  }
+                />
+              </div>
             </div>
 
             {/* Interview Content */}
@@ -247,7 +207,7 @@ export default function NewInterviewPage() {
             </div>
 
             <div className="flex gap-4">
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700">
                 {loading ? 'Analyzing...' : 'Create & Analyze Interview'}
               </Button>
               <Button

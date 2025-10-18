@@ -1,17 +1,43 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function CustomerProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const customerId = params.customerId as string;
 
+  // Fix: Cache selectors to avoid infinite loop
   const customer = useStore((state) => state.getCustomerById(customerId));
-  const interviews = useStore((state) => state.getInterviewsByCustomerId(customerId));
+  const deleteInterview = useStore((state) => state.deleteInterview);
+  const interviews = useMemo(
+    () => {
+      const allInterviews = useStore.getState().getInterviewsByCustomerId(customerId);
+      // Sort by interview date (newest first)
+      return [...allInterviews].sort((a, b) =>
+        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+      );
+    },
+    [customerId]
+  );
+
+  const handleDeleteInterview = (interviewId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (confirm('Are you sure you want to delete this interview?')) {
+      deleteInterview(interviewId);
+      toast.success('Interview deleted');
+    }
+  };
 
   if (!customer) {
     return (
@@ -93,14 +119,14 @@ export default function CustomerProfilePage() {
               const chips = getArtifactChips(interview);
 
               return (
-                <Card key={interview.id}>
+                <Card key={interview.id} className="hover:shadow-md transition">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="mb-2">
                           <Link
                             href={`/interview/${interview.id}`}
-                            className="hover:underline"
+                            className="hover:underline text-purple-600"
                           >
                             Interview from{' '}
                             {new Date(interview.uploadedAt).toLocaleDateString()}
@@ -110,6 +136,15 @@ export default function CustomerProfilePage() {
                           {interview.productIdea}
                         </p>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => handleDeleteInterview(interview.id, e)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        aria-label="Delete interview"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent>

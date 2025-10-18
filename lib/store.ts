@@ -24,6 +24,10 @@ interface StoreState {
   setBusy: (id: string, busy: boolean) => void;
   isBusy: (id: string) => boolean;
 
+  // Delete operations
+  deleteInterview: (interviewId: string) => void;
+  deleteCustomer: (customerId: string) => void;
+
   seedMock: () => void;
 }
 
@@ -144,6 +148,22 @@ export const useStore = create<StoreState>((set, get) => ({
 
   isBusy: (id) => {
     return get().busyMap[id] || false;
+  },
+
+  deleteInterview: (interviewId) => {
+    set((state) => ({
+      customers: state.customers.map((c) => ({
+        ...c,
+        interviews: c.interviews.filter((i) => i.id !== interviewId),
+        updatedAt: new Date(),
+      })),
+    }));
+  },
+
+  deleteCustomer: (customerId) => {
+    set((state) => ({
+      customers: state.customers.filter((c) => c.id !== customerId),
+    }));
   },
 
   seedMock: () => {
