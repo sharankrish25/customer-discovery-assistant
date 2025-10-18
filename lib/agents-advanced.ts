@@ -21,14 +21,15 @@ const SONNET_MODEL = 'claude-sonnet-4-20250514';
 const HAIKU_MODEL = 'claude-3-5-haiku-20241022';
 
 // Model-specific configurations
+// Note: temperature must be 1 when extended thinking is enabled
 const SONNET_CONFIG = {
   maxTokens: 1200,
-  temperature: 0.2,
+  temperature: 1, // Required for extended thinking mode
 };
 
 const HAIKU_CONFIG = {
   maxTokens: 700,
-  temperature: 0.2,
+  temperature: 1, // Required for extended thinking mode
 };
 
 // ============================================================================

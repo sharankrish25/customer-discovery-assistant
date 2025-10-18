@@ -7,9 +7,10 @@ import { callClaude, truncateForLLM } from './anthropic';
 // Using Claude Sonnet 4.5 for speaker identification
 const MODEL = 'claude-sonnet-4-20250514';
 
+// Note: temperature must be 1 when extended thinking is enabled
 const AGENT_CONFIG = {
   maxTokens: 4096, // Longer output for annotated transcripts
-  temperature: 0.2,
+  temperature: 1, // Required for extended thinking mode
 };
 
 // ============================================================================

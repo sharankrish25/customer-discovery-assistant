@@ -70,10 +70,11 @@ export type AlignmentOutput = z.infer<typeof AlignmentSchema>;
 // Using Claude Sonnet 4.5 - the fastest and most powerful Claude model
 const MODEL = 'claude-sonnet-4-20250514';
 
-// Model-specific configurations for speed and determinism
+// Model-specific configurations
+// Note: temperature must be 1 when extended thinking is enabled
 const AGENT_CONFIG = {
   maxTokens: 1200,
-  temperature: 0.2,
+  temperature: 1, // Required for extended thinking mode
 };
 
 // ============================================================================
