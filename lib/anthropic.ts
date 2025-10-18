@@ -39,15 +39,26 @@ export function truncateForLLM(s: string, max = 12000): string {
  * @returns The text response from Claude
  * @throws AIError on failure after retries
  */
+interface ClaudeCallOptions {
+  maxTokens?: number;
+  temperature?: number;
+  thinking?: boolean;
+  thinkingBudget?: number;
+}
+
+function resolveThinkingBudget(maxTokens: number, requested?: number): number {
+  const safeMax = Math.max(maxTokens - 1, 1);
+  const defaultBudget = Math.min(10_000, safeMax);
+  const desired = requested ?? defaultBudget;
+  const budget = Math.min(desired, safeMax);
+  return Math.max(256, budget);
+}
+
 export async function callClaude(
   model: string,
   system: string,
   user: string,
-  options: {
-    maxTokens?: number;
-    temperature?: number;
-    thinking?: boolean;
-  } = {}
+  options: ClaudeCallOptions = {}
 ): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -72,9 +83,10 @@ export async function callClaude(
     const response = await withRetry(
       async () => {
         // Build the base request parameters
+        const maxTokens = options.maxTokens ?? 4096;
         const baseParams = {
           model,
-          max_tokens: options.maxTokens ?? 4096,
+          max_tokens: maxTokens,
           temperature: options.temperature ?? 0.2,
           system: truncatedSystem,
           messages: [
@@ -94,7 +106,7 @@ export async function callClaude(
               ...baseParams,
               thinking: {
                 type: 'enabled' as const,
-                budget_tokens: 10000, // Allow up to 10k tokens for reasoning
+                budget_tokens: resolveThinkingBudget(maxTokens, options.thinkingBudget),
               },
             }
           : baseParams;
@@ -142,11 +154,7 @@ export async function callClaudeMultiMessage(
   model: string,
   system: string,
   messages: MessageParam[],
-  options: {
-    maxTokens?: number;
-    temperature?: number;
-    thinking?: boolean;
-  } = {}
+  options: ClaudeCallOptions = {}
 ): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -170,9 +178,10 @@ export async function callClaudeMultiMessage(
     const response = await withRetry(
       async () => {
         // Build the base request parameters
+        const maxTokens = options.maxTokens ?? 20000; // Higher for summaries by default
         const baseParams = {
           model,
-          max_tokens: options.maxTokens ?? 20000, // Higher for summaries
+          max_tokens: maxTokens,
           temperature: options.temperature ?? 1,
           system: truncatedSystem,
           messages,
@@ -187,7 +196,7 @@ export async function callClaudeMultiMessage(
               ...baseParams,
               thinking: {
                 type: 'enabled' as const,
-                budget_tokens: 10000,
+                budget_tokens: resolveThinkingBudget(maxTokens, options.thinkingBudget),
               },
             }
           : baseParams;

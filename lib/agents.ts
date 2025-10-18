@@ -78,6 +78,7 @@ const MODEL = 'claude-sonnet-4-5-20250929';
 const AGENT_CONFIG = {
   maxTokens: 1200,
   temperature: 1, // Required for extended thinking mode
+  thinkingBudget: 900,
 };
 
 // ============================================================================

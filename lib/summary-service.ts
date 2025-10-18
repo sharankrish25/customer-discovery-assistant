@@ -165,6 +165,7 @@ export async function createSummaryFromTranscript(
       maxTokens: options.maxTokens ?? SUMMARY_MAX_MODEL_TOKENS,
       temperature: 1,
       thinking: options.thinkingEnabled ?? true,
+      thinkingBudget: SUMMARY_MAX_MODEL_TOKENS - 1000,
     }
   );
 }
