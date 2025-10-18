@@ -16,18 +16,23 @@ function getLastInterviewDate(profile: CustomerProfile): string {
   return latest.toLocaleDateString();
 }
 
-function getKeyInsightSnippet(profile: CustomerProfile): string {
-  const interview = profile.interviews[0];
-  if (!interview) return '—';
-  const insightsData = interview.insights;
-  if (!insightsData || !insightsData.insights || insightsData.insights.length === 0) return '—';
-  const first = insightsData.insights[0];
-  return first.title || first.quotes?.[0]?.text || '—';
+function getAnalysisSnippet(profile: CustomerProfile): string {
+  if (!profile.interviews || profile.interviews.length === 0) return '—';
+  const withAnalysis = profile.interviews
+    .filter((interview) => interview.analysis && interview.analysis.trim().length > 0)
+    .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+
+  const latest = withAnalysis[0];
+  if (!latest || !latest.analysis) return '—';
+
+  const text = latest.analysis.trim();
+  if (text.length <= 160) return text;
+  return `${text.slice(0, 157)}…`;
 }
 
 export function CustomerCard({ profile }: CustomerCardProps) {
   const lastDate = getLastInterviewDate(profile);
-  const keyInsight = getKeyInsightSnippet(profile);
+  const analysisSnippet = getAnalysisSnippet(profile);
 
   return (
     <Link href={`/customer/${profile.id}`} className="block group">
@@ -48,8 +53,8 @@ export function CustomerCard({ profile }: CustomerCardProps) {
             {lastDate ? new Date(lastDate).toLocaleDateString() : '—'}
           </p>
           <p className="text-sm line-clamp-2">
-            <span className="font-medium">Key insight: </span>
-            {keyInsight}
+            <span className="font-medium">Latest analysis: </span>
+            {analysisSnippet}
           </p>
         </CardContent>
       </Card>

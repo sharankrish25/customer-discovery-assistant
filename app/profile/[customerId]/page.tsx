@@ -1,8 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,19 +15,15 @@ export default function CustomerProfilePage() {
   const router = useRouter();
   const customerId = params.customerId as string;
 
-  // Fix: Cache selectors to avoid infinite loop
   const customer = useStore((state) => state.getCustomerById(customerId));
   const deleteInterview = useStore((state) => state.deleteInterview);
-  const interviews = useMemo(
-    () => {
-      const allInterviews = useStore.getState().getInterviewsByCustomerId(customerId);
-      // Sort by interview date (newest first)
-      return [...allInterviews].sort((a, b) =>
-        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-      );
-    },
-    [customerId]
-  );
+
+  const interviews = useMemo(() => {
+    const allInterviews = useStore.getState().getInterviewsByCustomerId(customerId);
+    return [...allInterviews].sort(
+      (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+    );
+  }, [customerId]);
 
   const handleDeleteInterview = (interviewId: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -44,7 +40,10 @@ export default function CustomerProfilePage() {
       <div className="container mx-auto px-4 py-8">
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-muted-foreground">Customer not found</p>
-          <Link href="/dashboard" className="mt-4 inline-block text-primary hover:underline">
+          <Link
+            href="/dashboard"
+            className="mt-4 inline-block text-primary hover:underline"
+          >
             Return to Dashboard
           </Link>
         </div>
@@ -52,38 +51,20 @@ export default function CustomerProfilePage() {
     );
   }
 
-  const getArtifactChips = (interview: typeof interviews[0]) => {
-    const chips: { label: string; variant: 'default' | 'secondary' }[] = [];
-
-    // Auto-generated outputs
-    if (interview.summary) chips.push({ label: 'Summary', variant: 'default' });
-    if (interview.insights) chips.push({ label: 'Insights', variant: 'default' });
-    if (interview.alignment) chips.push({ label: 'Alignment', variant: 'default' });
-
-    // Optional outputs (use betterQuestions and followUpEmail from detailed types)
-    if (interview.coaching) chips.push({ label: 'Coaching', variant: 'secondary' });
-    if (interview.betterQuestions)
-      chips.push({ label: 'Questions', variant: 'secondary' });
-    if (interview.followUpEmail) chips.push({ label: 'Follow-up', variant: 'secondary' });
-
-    return chips;
-  };
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Customer Header */}
-      <div className="mb-8">
-        <div className="mb-2">
-          <Link
-            href="/dashboard"
-            className="text-sm text-muted-foreground hover:underline"
-          >
-            ← Back to Dashboard
-          </Link>
-        </div>
-        <div className="mb-4 flex items-center gap-3">
+    <div className="container mx-auto px-4 py-8 space-y-8">
+      <div>
+        <Link
+          href="/dashboard"
+          className="text-sm text-muted-foreground hover:underline"
+        >
+          ← Back to Dashboard
+        </Link>
+        <div className="mt-2 mb-4 flex items-center gap-3">
           <h1 className="text-3xl font-bold">{customer.name}</h1>
-          <Badge variant="outline">{customer.stakeholderType}</Badge>
+          {customer.stakeholderType && (
+            <Badge variant="outline">{customer.stakeholderType}</Badge>
+          )}
         </div>
         {customer.demographics && (
           <div className="rounded-lg bg-muted p-4">
@@ -95,84 +76,80 @@ export default function CustomerProfilePage() {
         )}
       </div>
 
-      {/* Interviews List */}
-      <div>
-        <h2 className="mb-4 text-2xl font-semibold">
-          Interviews ({interviews.length})
-        </h2>
-
-        {interviews.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center">
-            <p className="text-muted-foreground">
-              No interviews yet for this customer
-            </p>
-            <Link
-              href="/interview/new"
-              className="mt-4 inline-block text-primary hover:underline"
-            >
-              Create New Interview
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {interviews.map((interview) => {
-              const chips = getArtifactChips(interview);
-
-              return (
-                <Card key={interview.id} className="hover:shadow-md transition">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="mb-2">
-                          <Link
-                            href={`/interview/${interview.id}`}
-                            className="hover:underline text-purple-600"
-                          >
-                            Interview from{' '}
-                            {new Date(interview.uploadedAt).toLocaleDateString()}
-                          </Link>
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {interview.productIdea}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => handleDeleteInterview(interview.id, e)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        aria-label="Delete interview"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
-                        Available Artifacts
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {chips.length > 0 ? (
-                          chips.map((chip, index) => (
-                            <Badge key={index} variant={chip.variant}>
-                              {chip.label}
-                            </Badge>
-                          ))
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            Analysis pending
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-semibold">Interviews ({interviews.length})</h2>
+        <Button onClick={() => router.push('/interview/new')}>New Interview</Button>
       </div>
+
+      {interviews.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-8 text-center">
+          <p className="text-muted-foreground">No interviews yet for this customer</p>
+          <Link
+            href="/interview/new"
+            className="mt-4 inline-block text-primary hover:underline"
+          >
+            Create New Interview
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {interviews.map((interview) => {
+            const snippet = interview.analysis
+              ? interview.analysis.length > 160
+                ? `${interview.analysis.slice(0, 157)}…`
+                : interview.analysis
+              : null;
+
+            return (
+              <Card key={interview.id} className="transition hover:shadow-md">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg">
+                        <Link
+                          href={`/interview/${interview.id}`}
+                          className="hover:underline text-purple-600"
+                        >
+                          Interview from {new Date(interview.uploadedAt).toLocaleDateString()}
+                        </Link>
+                      </CardTitle>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {interview.productIdea}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => handleDeleteInterview(interview.id, e)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      aria-label="Delete interview"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Badge variant={interview.analysisStatus === 'complete' ? 'secondary' : 'outline'}>
+                    {interview.analysisStatus === 'complete'
+                      ? 'Analysis ready'
+                      : interview.analysisStatus === 'processing'
+                        ? 'Analyzing…'
+                        : interview.analysisStatus === 'error'
+                          ? 'Analysis failed'
+                          : 'Queued'}
+                  </Badge>
+                  {snippet && (
+                    <p className="text-sm text-muted-foreground">{snippet}</p>
+                  )}
+                  {interview.analysisStatus === 'error' && interview.error && (
+                    <p className="text-sm text-destructive">{interview.error}</p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

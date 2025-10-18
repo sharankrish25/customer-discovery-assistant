@@ -1,32 +1,53 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Timeline } from '@/components/Timeline';
 import { useStore } from '@/lib/store';
-import { toast } from 'sonner';
 
 export default function CustomerProfilePage() {
   const params = useParams();
   const customerId = params.id as string;
 
-  // Get profile from Zustand store
   const zustandProfile = useStore((state) => state.getCustomerById(customerId));
+  const interviews = useMemo(() => {
+    if (!zustandProfile) return [];
+    return [...zustandProfile.interviews]
+      .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+      .map((interview) => ({
+        id: interview.id,
+        customerId: interview.customerId,
+        productIdea: interview.productIdea,
+        transcript: interview.transcript,
+        date: interview.uploadedAt.toISOString(),
+        analysis: interview.analysis,
+        analysisStatus: interview.analysisStatus,
+        error: interview.error,
+      }));
+  }, [zustandProfile]);
+
   const [selectedInterviewId, setSelectedInterviewId] = useState<string>(
-    zustandProfile?.interviews[0]?.id || ''
+    interviews[0]?.id || ''
   );
+
+  const selectedInterview = interviews.find((i) => i.id === selectedInterviewId);
+
+  useEffect(() => {
+    if (interviews.length === 0) {
+      setSelectedInterviewId('');
+      return;
+    }
+
+    const exists = interviews.some((interview) => interview.id === selectedInterviewId);
+    if (!exists) {
+      setSelectedInterviewId(interviews[0].id);
+    }
+  }, [interviews, selectedInterviewId]);
 
   if (!zustandProfile) {
     return (
@@ -44,109 +65,58 @@ export default function CustomerProfilePage() {
     );
   }
 
-  // Convert Zustand profile to expected format
-  const profile = {
-    ...zustandProfile,
-    role: zustandProfile.stakeholderType,
-    createdAt: zustandProfile.createdAt.toISOString(),
-    updatedAt: zustandProfile.updatedAt.toISOString(),
-    interviews: zustandProfile.interviews.map(interview => ({
-      id: interview.id,
-      customerId: interview.customerId,
-      productIdea: interview.productIdea,
-      transcript: interview.transcript,
-      date: interview.uploadedAt.toISOString(),
-      results: {
-        summary: {
-          bullets: interview.summary?.summary.bullets || [],
-          confidence: interview.summary?.summary.confidence,
-        },
-        insights: {
-          items: interview.insights?.insights.map(i => ({
-            title: i.title,
-            type: i.type,
-            quotes: i.quotes.map(q => q.text),
-            evidence: i.evidence_level,
-          })) || [],
-          confidence: interview.insights?.confidence,
-        },
-        alignment: {
-          supports: interview.alignment?.alignment.supports.map(s => s.insight_title) || [],
-          contradicts: interview.alignment?.alignment.contradicts.map(c => c.insight_title) || [],
-          neutral: interview.alignment?.alignment.neutral.map(n => n.insight_title) || [],
-          confidence: 0,
-        },
-      },
-    })),
-  };
-
-  const lastDate = profile.interviews.length > 0
-    ? profile.interviews.map(i => new Date(i.date)).sort((a, b) => b.getTime() - a.getTime())[0].toISOString()
-    : null;
-
-  const selectedInterview = profile.interviews.find(
-    (i) => i.id === selectedInterviewId
-  );
-
-  const handleRerun = (type: string) => {
-    toast.info(`${type} generation coming soon`);
-  };
+  const lastDate = interviews.length > 0 ? interviews[0].date : null;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <Link
-          href="/dashboard"
-          className="text-sm text-muted-foreground hover:underline mb-2 inline-block"
-        >
-          ← Back to Dashboard
-        </Link>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">{profile.name}</h1>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="secondary">
-                {profile.role || profile.stakeholderType}
-              </Badge>
-              {profile.demographics && (
-                <span className="text-sm text-muted-foreground">
-                  {profile.demographics}
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Last interview:{' '}
-              {lastDate ? new Date(lastDate).toLocaleDateString() : '—'}
-            </p>
+    <div className="container mx-auto px-4 py-8 space-y-8">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="space-y-2">
+          <Link
+            href="/dashboard"
+            className="text-sm text-muted-foreground hover:underline"
+          >
+            ← Back to Dashboard
+          </Link>
+          <h1 className="text-3xl font-bold">{zustandProfile.name}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            {zustandProfile.stakeholderType && (
+              <Badge variant="secondary">{zustandProfile.stakeholderType}</Badge>
+            )}
+            {zustandProfile.demographics && (
+              <span className="text-sm text-muted-foreground">
+                {zustandProfile.demographics}
+              </span>
+            )}
           </div>
+          <p className="text-sm text-muted-foreground">
+            Last interview: {lastDate ? new Date(lastDate).toLocaleDateString() : '—'}
+          </p>
         </div>
+        <Button asChild>
+          <Link href="/interview/new">New Interview</Link>
+        </Button>
       </div>
 
-      {/* Timeline */}
-      <div className="mb-8">
+      <div>
         <h2 className="text-2xl font-semibold mb-4">Analyzed Interviews</h2>
-        <Timeline interviews={profile.interviews} />
+        <Timeline interviews={interviews} />
       </div>
 
-      {/* Tabs */}
-      {profile.interviews.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold">Interview Data</h2>
-            {profile.interviews.length > 1 && (
-              <Select
-                value={selectedInterviewId}
-                onValueChange={setSelectedInterviewId}
-              >
-                <SelectTrigger className="w-[300px]">
+      {interviews.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <h2 className="text-2xl font-semibold">Interview Details</h2>
+            {interviews.length > 1 && (
+              <Select value={selectedInterviewId} onValueChange={setSelectedInterviewId}>
+                <SelectTrigger className="w-[280px]">
                   <SelectValue placeholder="Select interview" />
                 </SelectTrigger>
                 <SelectContent>
-                  {profile.interviews.map((interview) => (
+                  {interviews.map((interview) => (
                     <SelectItem key={interview.id} value={interview.id}>
-                      {new Date(interview.date).toLocaleDateString()} -{' '}
-                      {interview.productIdea.slice(0, 40)}...
+                      {new Date(interview.date).toLocaleDateString()} –{' '}
+                      {interview.productIdea.slice(0, 50)}
+                      {interview.productIdea.length > 50 ? '…' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -155,184 +125,50 @@ export default function CustomerProfilePage() {
           </div>
 
           {selectedInterview && (
-            <Tabs defaultValue="summary">
-              <TabsList className="grid w-full grid-cols-6">
-                <TabsTrigger value="summary">Summary</TabsTrigger>
-                <TabsTrigger value="insights">Insights</TabsTrigger>
-                <TabsTrigger value="alignment">Alignment</TabsTrigger>
-                <TabsTrigger value="coaching">Coaching</TabsTrigger>
-                <TabsTrigger value="questions">Questions</TabsTrigger>
-                <TabsTrigger value="email">Email</TabsTrigger>
-              </TabsList>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Product Vision</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-line text-sm text-muted-foreground">
+                    {selectedInterview.productIdea}
+                  </p>
+                </CardContent>
+              </Card>
 
-              <TabsContent value="summary" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="list-disc space-y-2 pl-5">
-                      {selectedInterview.results.summary.bullets.map(
-                        (bullet, idx) => (
-                          <li key={idx} className="text-sm">
-                            {bullet}
-                          </li>
-                        )
-                      )}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="insights" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Insights</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {selectedInterview.results.insights.items.map(
-                        (item, idx) => (
-                          <div
-                            key={idx}
-                            className="border-l-4 border-primary pl-4"
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant="outline">{item.type}</Badge>
-                              <Badge>{item.evidence}</Badge>
-                            </div>
-                            <p className="font-medium text-sm">{item.title}</p>
-                            {item.quotes.length > 0 && (
-                              <p className="text-sm text-muted-foreground mt-1 italic">
-                                &ldquo;{item.quotes[0]}&rdquo;
-                              </p>
-                            )}
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="alignment" className="mt-6">
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-green-600 dark:text-green-400">
-                        Supports
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2">
-                        {selectedInterview.results.alignment.supports.map(
-                          (item, idx) => (
-                            <li key={idx} className="text-sm">
-                              {item}
-                            </li>
-                          )
-                        )}
-                      </ul>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-red-600 dark:text-red-400">
-                        Contradicts
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2">
-                        {selectedInterview.results.alignment.contradicts.map(
-                          (item, idx) => (
-                            <li key={idx} className="text-sm">
-                              {item}
-                            </li>
-                          )
-                        )}
-                      </ul>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-gray-600 dark:text-gray-400">
-                        Neutral
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2">
-                        {selectedInterview.results.alignment.neutral.map(
-                          (item, idx) => (
-                            <li key={idx} className="text-sm">
-                              {item}
-                            </li>
-                          )
-                        )}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="coaching" className="mt-6">
-                <Card>
-                  <CardContent className="pt-6 text-center py-12">
-                    <p className="text-muted-foreground mb-4">
-                      Not generated yet
+              <Card>
+                <CardHeader>
+                  <CardTitle>Analysis</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedInterview.analysisStatus === 'complete' && selectedInterview.analysis ? (
+                    <p className="whitespace-pre-line leading-relaxed">
+                      {selectedInterview.analysis}
                     </p>
-                    <Button
-                      variant="outline"
-                      disabled
-                      title="Coming soon"
-                      aria-disabled="true"
-                      onClick={() => handleRerun('Coaching')}
-                    >
-                      Re-run Coaching
-                    </Button>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="questions" className="mt-6">
-                <Card>
-                  <CardContent className="pt-6 text-center py-12">
-                    <p className="text-muted-foreground mb-4">
-                      Not generated yet
+                  ) : selectedInterview.analysisStatus === 'error' ? (
+                    <p className="text-sm text-muted-foreground">
+                      {selectedInterview.error || 'Analysis failed. Try rerunning the interview.'}
                     </p>
-                    <Button
-                      variant="outline"
-                      disabled
-                      title="Coming soon"
-                      aria-disabled="true"
-                      onClick={() => handleRerun('Better Questions')}
-                    >
-                      Re-run Better Questions
-                    </Button>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="email" className="mt-6">
-                <Card>
-                  <CardContent className="pt-6 text-center py-12">
-                    <p className="text-muted-foreground mb-4">
-                      Not generated yet
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Analysis is still running. Check back in a moment.
                     </p>
-                    <Button
-                      variant="outline"
-                      disabled
-                      title="Coming soon"
-                      aria-disabled="true"
-                      onClick={() => handleRerun('Follow-up Email')}
-                    >
-                      Re-run Follow-up Email
-                    </Button>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Transcript</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap rounded bg-muted/40 p-4 text-sm">
+                    {selectedInterview.transcript}
+                  </pre>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       )}

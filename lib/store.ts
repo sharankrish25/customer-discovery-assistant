@@ -1,30 +1,22 @@
 import { create } from "zustand";
 import type { CustomerProfile, Interview } from "@/types/models";
-import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput } from "@/types/ai";
 
 interface StoreState {
   customers: CustomerProfile[];
-  // Busy state tracking for concurrent request prevention
   busyMap: Record<string, boolean>;
 
   addCustomer: (customer: Omit<CustomerProfile, "interviews">) => string;
   addInterview: (customerId: string, interview: Omit<Interview, "customerId">) => string;
   updateInterview: (interviewId: string, patch: Partial<Interview>) => void;
-  updateInterviewAnalysis: (interviewId: string, patch: Partial<Interview>) => void;
-  updateInterviewCoaching: (interviewId: string, coaching: CoachingOutput) => void;
-  updateInterviewNextQuestions: (interviewId: string, nextQuestions: BetterQuestionsOutput) => void;
-  updateInterviewFollowup: (interviewId: string, followup: FollowUpEmailOutput) => void;
   getInterview: (interviewId: string) => Interview | undefined;
   getInterviewById: (interviewId: string) => Interview | undefined;
   getInterviewsByCustomerId: (customerId: string) => Interview[];
   getCustomerById: (customerId: string) => CustomerProfile | undefined;
   getCustomerByName: (name: string) => CustomerProfile | undefined;
 
-  // Busy state management
   setBusy: (id: string, busy: boolean) => void;
   isBusy: (id: string) => boolean;
 
-  // Delete operations
   deleteInterview: (interviewId: string) => void;
   deleteCustomer: (customerId: string) => void;
 }
@@ -117,22 +109,6 @@ export const useStore = create<StoreState>((set, get) => ({
   getCustomerByName: (name) => {
     const state = get();
     return state.customers.find((c) => c.name === name);
-  },
-
-  updateInterviewAnalysis: (interviewId, patch) => {
-    get().updateInterview(interviewId, patch);
-  },
-
-  updateInterviewCoaching: (interviewId, coaching) => {
-    get().updateInterview(interviewId, { coaching });
-  },
-
-  updateInterviewNextQuestions: (interviewId, nextQuestions) => {
-    get().updateInterview(interviewId, { betterQuestions: nextQuestions });
-  },
-
-  updateInterviewFollowup: (interviewId, followup) => {
-    get().updateInterview(interviewId, { followUpEmail: followup });
   },
 
   setBusy: (id, busy) => {

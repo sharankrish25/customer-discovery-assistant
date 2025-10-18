@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Customer, Interview } from '@/lib/types';
+import type { CustomerProfile, Interview } from '@/types/models';
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 
 interface CustomerTableProps {
-  customers: Customer[];
+  customers: CustomerProfile[];
   interviews: Interview[];
 }
 

@@ -48,6 +48,8 @@ export default function NewInterviewPage() {
 
     setLoading(true);
 
+    let interviewId = '';
+
     try {
       // Find or create customer profile
       const customer = getCustomerByName(formData.name);
@@ -71,19 +73,14 @@ export default function NewInterviewPage() {
       }
 
       // Create interview record
-      const interviewId = `int-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      interviewId = `int-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       addInterview(customerId, {
         id: interviewId,
         uploadedAt: new Date(formData.interviewDate),
         transcript: trimmedTranscript,
         productIdea: trimmedProductIdea,
-        summary: null,
-        insights: null,
-        alignment: null,
-        coaching: null,
-        betterQuestions: null,
-        followUpEmail: null,
-        analysisStatus: 'pending',
+        analysis: null,
+        analysisStatus: 'processing',
       });
 
       // Call API to analyze interview
@@ -106,12 +103,12 @@ export default function NewInterviewPage() {
         throw new Error(errorMsg);
       }
 
-      // Update the interview with the analysis results from the API
+      const analysis = typeof result.data?.analysis === 'string' ? result.data.analysis.trim() : '';
+
       updateInterview(interviewId, {
-        summary: result.data.summary,
-        insights: result.data.insights,
-        alignment: result.data.alignment,
+        analysis,
         analysisStatus: 'complete',
+        error: undefined,
       });
 
       toast.success('Interview analyzed successfully!');
@@ -120,6 +117,12 @@ export default function NewInterviewPage() {
       const message = error instanceof Error ? error.message : 'Failed to create and analyze interview';
       toast.error(message);
       console.error(error);
+      if (interviewId) {
+        updateInterview(interviewId, {
+          analysisStatus: 'error',
+          error: message,
+        });
+      }
     } finally {
       setLoading(false);
     }

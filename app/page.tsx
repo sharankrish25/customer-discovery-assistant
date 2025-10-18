@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, Users, Lightbulb, Mail } from 'lucide-react';
 
 export default function Home() {
@@ -32,7 +32,7 @@ export default function Home() {
               <FileText className="w-8 h-8 text-purple-400 mb-2" />
               <CardTitle className="text-neutral-50">Auto Analysis</CardTitle>
               <CardDescription className="text-neutral-300">
-                Automatic summary, insights, and alignment analysis powered by Claude AI
+                Claude distills each interview into a single narrative you can share with your team
               </CardDescription>
             </CardHeader>
           </Card>
@@ -50,9 +50,9 @@ export default function Home() {
           <Card className="bg-neutral-800/50 border-neutral-700">
             <CardHeader>
               <Lightbulb className="w-8 h-8 text-purple-400 mb-2" />
-              <CardTitle className="text-neutral-50">Better Questions</CardTitle>
+              <CardTitle className="text-neutral-50">Transcript Insights</CardTitle>
               <CardDescription className="text-neutral-300">
-                Generate follow-up questions based on proven customer discovery techniques
+                Keep full transcripts alongside the AI write-up for context and deeper dives
               </CardDescription>
             </CardHeader>
           </Card>
@@ -60,9 +60,9 @@ export default function Home() {
           <Card className="bg-neutral-800/50 border-neutral-700">
             <CardHeader>
               <Mail className="w-8 h-8 text-purple-400 mb-2" />
-              <CardTitle className="text-neutral-50">Follow-up Emails</CardTitle>
+              <CardTitle className="text-neutral-50">Progress Tracking</CardTitle>
               <CardDescription className="text-neutral-300">
-                Draft personalized follow-up emails referencing key insights
+                See which interviews are pending, processing, or ready without leaving the dashboard
               </CardDescription>
             </CardHeader>
           </Card>
