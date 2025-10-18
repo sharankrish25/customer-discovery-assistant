@@ -64,8 +64,13 @@ export function getLastInterviewDate(p: CustomerProfile): string | null {
 }
 
 export function getKeyInsightSnippet(ir: InterviewRecord): string {
-  const first = ir.results?.insights?.items?.[0];
-  return first?.title || first?.quotes?.[0] || "—";
+  if (!ir.analysis) {
+    return "—";
+  }
+
+  return ir.analysis.length > 160
+    ? `${ir.analysis.slice(0, 157)}…`
+    : ir.analysis;
 }
 
 // Interview-specific storage (for backward compatibility with existing /interview/[id] page)

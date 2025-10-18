@@ -23,14 +23,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (typeof body !== "object" || body === null) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERR",
+          message: "Request body must be a JSON object",
+        },
+      },
+      { status: 400 }
+    );
+  }
+
+  const payload = body as {
+    transcript?: unknown;
+    productIdea?: unknown;
+  };
+
   const transcript =
-    body && typeof (body as Record<string, unknown>).transcript === "string"
-      ? (body as Record<string, unknown>).transcript.trim()
-      : "";
+    typeof payload.transcript === "string" ? payload.transcript.trim() : "";
   const productIdea =
-    body && typeof (body as Record<string, unknown>).productIdea === "string"
-      ? (body as Record<string, unknown>).productIdea.trim()
-      : "";
+    typeof payload.productIdea === "string" ? payload.productIdea.trim() : "";
 
   if (!transcript) {
     return NextResponse.json(
