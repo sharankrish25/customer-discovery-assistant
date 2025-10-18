@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "TS_NODE_PROJECT=tsconfig.test.json node --require ts-node/register --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
@@ -40,6 +41,7 @@
     "eslint-config-next": "15.5.6",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.14",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { withRetry } from './retry';
 import { normalizeAIError } from './errors';
+import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 
 /**
  * Truncates input text to prevent exceeding token limits.
@@ -122,6 +123,98 @@ export async function callClaude(
   } catch (error) {
     const normalized = normalizeAIError(error);
     console.error(`[${requestId}] Claude API error:`, normalized);
+    throw normalized;
+  }
+}
+
+/**
+ * Calls Claude API with multi-message support for chunked transcripts.
+ * Useful for handling large transcripts that need to be sent in multiple parts.
+ *
+ * @param model - The Claude model to use
+ * @param system - System prompt
+ * @param messages - Array of message objects (user messages in sequence)
+ * @param options - Optional configuration
+ * @returns The text response from Claude
+ * @throws AIError on failure after retries
+ */
+export async function callClaudeMultiMessage(
+  model: string,
+  system: string,
+  messages: MessageParam[],
+  options: {
+    maxTokens?: number;
+    temperature?: number;
+    thinking?: boolean;
+  } = {}
+): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      'ANTHROPIC_API_KEY environment variable is not set. Please add it to your .env.local file.'
+    );
+  }
+
+  const anthropic = new Anthropic({
+    apiKey,
+  });
+
+  // Truncate system prompt
+  const truncatedSystem = truncateForLLM(system, 8000);
+
+  // Generate unique request ID for debugging
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+  try {
+    const response = await withRetry(
+      async () => {
+        // Build the base request parameters
+        const baseParams = {
+          model,
+          max_tokens: options.maxTokens ?? 20000, // Higher for summaries
+          temperature: options.temperature ?? 1,
+          system: truncatedSystem,
+          messages,
+          metadata: {
+            user_id: requestId,
+          },
+        };
+
+        // Add thinking parameter if enabled (default: true)
+        const requestParams = options.thinking !== false
+          ? {
+              ...baseParams,
+              thinking: {
+                type: 'enabled' as const,
+                budget_tokens: 10000,
+              },
+            }
+          : baseParams;
+
+        const message = await anthropic.messages.create(requestParams);
+
+        // Extract text from content blocks, skipping thinking blocks
+        let textContent = '';
+        for (const block of message.content) {
+          if (block.type === 'text') {
+            textContent += block.text;
+          }
+        }
+
+        if (!textContent) {
+          throw new Error('No text content in Claude API response');
+        }
+
+        return textContent;
+      },
+      { retries: 2, baseMs: 600 }
+    );
+
+    return response;
+  } catch (error) {
+    const normalized = normalizeAIError(error);
+    console.error(`[${requestId}] Claude API error (multi-message):`, normalized);
     throw normalized;
   }
 }

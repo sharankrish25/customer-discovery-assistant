@@ -1,7 +1,10 @@
+import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import { z } from 'zod';
 import { callClaude, truncateForLLM } from './anthropic';
 import { parseJsonSafely } from './parseJson';
 import { clampConfidence } from './confidence';
+import { validateTranscript } from './transcript-chunking';
+import { createSummary, createSummaryFromTranscript, type TranscriptFetcher } from './summary-service';
 
 // ============================================================================
 // Zod Schemas (matching UI types)
@@ -68,7 +71,7 @@ export type AlignmentOutput = z.infer<typeof AlignmentSchema>;
 // ============================================================================
 
 // Using Claude Sonnet 4.5 - the fastest and most powerful Claude model
-const MODEL = 'claude-sonnet-4-20250514';
+const MODEL = 'claude-sonnet-4-5-20250929';
 
 // Model-specific configurations
 // Note: temperature must be 1 when extended thinking is enabled
@@ -357,7 +360,11 @@ function deriveAlignmentFallback(
  */
 export async function analyzeSummary(
   transcript: string,
-  idea: string
+  idea: string,
+  options: {
+    interviewId?: string;
+    transcriptFetcher?: TranscriptFetcher;
+  } = {}
 ): Promise<SummaryOutput> {
   // Return mock if no API key
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -365,83 +372,37 @@ export async function analyzeSummary(
     return deriveSummaryFallback(transcript);
   }
 
-  const system = `You are a specialized customer discovery signal extractor for early-stage founders. Your job is to read the entire transcript provided (and only that transcript) and synthesize evidence-backed insights from it.
+  const { valid, sanitized, error } = validateTranscript(transcript);
 
-You must derive insights by combining multiple related statements from the transcript into a single cohesive pattern — not quoting or lightly paraphrasing one-off lines.
+  if (!valid || !sanitized) {
+    throw new Error(error || 'Transcript is empty. No transcript = no output.');
+  }
 
-Your output must focus exclusively on:
+  const truncatedIdea = truncateForLLM(idea, 500).trim();
+  const additionalMessages: MessageParam[] = [];
 
-Pain points (recurring friction or breakdowns in how they currently get something done)
+  if (truncatedIdea) {
+    additionalMessages.push({
+      role: 'user',
+      content: `[Product idea context]\n\n${truncatedIdea}\n\nUse this solely as background. Do not let it override transcript evidence.`,
+    });
+  }
 
-Needs (what they implicitly or explicitly want that would remove that friction)
-
-Current behaviors (what they actually do today — existing workflow, habits, tools, or workarounds)
-
-Actionable takeaways (what this means for the founder building a solution)
-
-Rules
-
-3–8 bullets maximum
-
-Each bullet must reflect a real, repeated, transcript-supported pain point, needs, current behaviors, or actionable takeaway that is summarizing a set of sentences within the transcript or a single very important sentence within the transcript. DO NOT COPY THE TRANSCRIPT VERBATIM AND PUT IT AS A BULLET IN THE SUMMARY.
-
-Each insight must be synthesized from multiple parts of the transcript, not a single sentence
-
-Insights must be directly grounded in what the interviewee actually does today
-
-The summary must be restricted entirely to the provided transcript — no external assumptions, no generic productivity tropes, and no template-style guessed examples
-
-You must NOT:
-
-Pull from hypothetical examples or past interview templates
-
-Fill in gaps with generic startup/knowledge-work pains
-
-Use stock language like "switching between Slack, email, Google Docs" unless those tools were explicitly mentioned by the interviewee in THIS transcript
-
-Infer future wants that aren't tied to actual present-day behavior
-
-Quote compliments or enthusiasm about a hypothetical solution
-
-Core Instruction
-
-You are not summarizing what was said — you are summarizing what was learned, and you must base every insight only on what is explicitly evidenced in the transcript provided by the user.
-
-No transcript = no output.
-No evidence = no insight.`;
-
-  const truncatedTranscript = truncateForLLM(transcript);
-  const truncatedIdea = truncateForLLM(idea, 500);
-
-  const user = `INTERVIEW TRANSCRIPT:
-${truncatedTranscript}
-
-PRODUCT IDEA (for context only):
-${truncatedIdea}
-
-TASK:
-Read the entire transcript and synthesize 3-8 evidence-backed insights by combining multiple related statements into cohesive patterns.
-
-Each bullet must:
-- Synthesize insights from multiple parts of the transcript (not quote single sentences)
-- Focus on pain points, needs, current behaviors, or actionable takeaways
-- Be grounded in what the interviewee actually does today
-- NOT copy the transcript verbatim
-
-You must base every insight only on what is explicitly in the transcript. No external assumptions, no generic productivity tropes, no stock examples.
-
-Return JSON exactly matching this structure:
-{ "summary": { "bullets": string[], "tone":"neutral", "confidence": 0..1 } }
-
-Requirements:
-- 3-8 bullets maximum
-- Each bullet synthesizes multiple transcript statements into one cohesive pattern
-- Restrict entirely to this transcript only
-- No hypotheticals, no compliments about solutions
-- Neutral, factual tone only`;
+  additionalMessages.push({
+    role: 'user',
+    content:
+      '[Output format]\n\nReturn JSON exactly matching {"summary":{"bullets":string[],"tone":"neutral","confidence":number}}. ' +
+      'Provide 3-8 bullet strings (one sentence each), keep tone "neutral", and set confidence between 0 and 1 without markdown code fences.',
+  });
 
   try {
-    const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
+    const response = options.interviewId && options.transcriptFetcher
+      ? await createSummary(options.interviewId, options.transcriptFetcher, {
+          additionalMessages,
+        })
+      : await createSummaryFromTranscript(sanitized, {
+          additionalMessages,
+        });
     const parsed = parseJsonSafely(response);
     const result = SummarySchema.parse(parsed);
 
@@ -722,7 +683,11 @@ Classification:
  */
 export async function runAutoAnalysis(
   transcript: string,
-  idea: string
+  idea: string,
+  options: {
+    interviewId?: string;
+    transcriptFetcher?: TranscriptFetcher;
+  } = {}
 ): Promise<{
   summary: SummaryOutput;
   insights: InsightsOutput;
@@ -743,7 +708,7 @@ export async function runAutoAnalysis(
 
   try {
     // Step 1: Generate summary
-    const summary = await analyzeSummary(transcript, idea);
+    const summary = await analyzeSummary(transcript, idea, options);
 
     // Step 2: Extract insights
     const insights = await extractInsights(transcript);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { useStore } from "@/lib/store";
 import { runAutoAnalysis } from "@/lib/agents";
+import { fetchInterviewForAnalysis, supabaseTranscriptFetcher } from "@/lib/interviews";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { normalizeAIError, isRateLimitError } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
@@ -16,7 +18,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { interviewId, transcript, productIdea } = body;
+    const { interviewId } = body;
+    const requestTranscript = typeof body.transcript === 'string' ? body.transcript : undefined;
+    const requestProductIdea = typeof body.productIdea === 'string' ? body.productIdea : undefined;
 
     if (!interviewId || typeof interviewId !== 'string') {
       return NextResponse.json(
@@ -25,16 +29,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!transcript || typeof transcript !== 'string') {
+    const supabaseEnabled = isSupabaseConfigured();
+    let transcript: string | undefined;
+    let productIdea: string | undefined;
+
+    let usedSupabaseRecord = false;
+
+    if (supabaseEnabled) {
+      try {
+        const record = await fetchInterviewForAnalysis(interviewId);
+        transcript = record.transcript;
+        productIdea = record.productIdea;
+        usedSupabaseRecord = true;
+      } catch (fetchError) {
+        console.error(`Failed to load transcript for ${interviewId} from Supabase:`, fetchError);
+      }
+    }
+
+    transcript = transcript ?? requestTranscript;
+    productIdea = productIdea ?? requestProductIdea;
+
+    const normalizedTranscript = typeof transcript === 'string' ? transcript.trim() : '';
+    if (!normalizedTranscript) {
+      const message = supabaseEnabled
+        ? 'Transcript not found in persistence. Ensure the interview was uploaded before requesting analysis.'
+        : 'transcript is required and must be a string';
       return NextResponse.json(
-        { ok: false, error: { code: "VALIDATION_ERR", message: "transcript is required and must be a string" } },
+        { ok: false, error: { code: "VALIDATION_ERR", message } },
         { status: 400 }
       );
     }
 
-    if (!productIdea || typeof productIdea !== 'string') {
+    const normalizedProductIdea = typeof productIdea === 'string' ? productIdea.trim() : '';
+    if (!normalizedProductIdea) {
+      const message = supabaseEnabled
+        ? 'Product idea missing for this interview. Save the interview details before running analysis.'
+        : 'productIdea is required and must be a string';
       return NextResponse.json(
-        { ok: false, error: { code: "VALIDATION_ERR", message: "productIdea is required and must be a string" } },
+        { ok: false, error: { code: "VALIDATION_ERR", message } },
         { status: 400 }
       );
     }
@@ -47,8 +79,14 @@ export async function POST(request: NextRequest) {
     try {
       // Call auto-analysis with retry logic built-in
       const { summary, insights, alignment } = await runAutoAnalysis(
-        transcript,
-        productIdea
+        normalizedTranscript,
+        normalizedProductIdea,
+        usedSupabaseRecord
+          ? {
+              interviewId,
+              transcriptFetcher: supabaseTranscriptFetcher,
+            }
+          : {}
       );
 
       // Update interview with results

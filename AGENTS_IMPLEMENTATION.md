@@ -36,6 +36,21 @@ Implemented 3 automatic agents (Summary, Insights, Alignment) using Anthropic's 
    - Demonstrates error handling
    - Documents expected output shapes
 
+6. **`lib/summary-service.ts`** - Production summary helper
+   - Stores the immutable Summary API prompt exactly as specced
+   - Builds chunked multi-message payloads for long transcripts
+   - Provides `createSummary()` / `createSummaryFromTranscript()` helpers with secure fetch injection
+
+7. **`lib/interviews.ts`** - Supabase integration utilities
+   - Fetches transcripts and product ideas from persistent storage
+   - Exposes `supabaseTranscriptFetcher` for the summary service
+
+8. **`lib/supabase.ts`** - Lazily instantiated service-role client
+   - Shared helper to avoid scattering credential checks
+
+9. **`tests/transcript-chunking.test.ts`** - Node-based unit tests
+   - Covers `chunkTranscript` paragraph handling and sanitization guards
+
 ### Updated Files
 
 - **`app/api/analyze/route.ts`** - Now uses `runAutoAnalysis()` from agents
@@ -124,7 +139,11 @@ function analyzeAlignment(
 
 function runAutoAnalysis(
   transcript: string,
-  idea: string
+  idea: string,
+  options?: {
+    interviewId?: string;
+    transcriptFetcher?: TranscriptFetcher;
+  }
 ): Promise<{
   summary: SummaryOutput;
   insights: InsightsOutput;
