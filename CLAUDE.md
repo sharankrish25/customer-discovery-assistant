@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Customer Discovery Assistant - A Next.js 15 application designed to help with customer discovery workflows using Anthropic's Claude API and Supabase for data persistence. The project is currently in its initial setup phase with core dependencies installed but application logic not yet implemented.
 
+**New to the project?** See [SETUP.md](./SETUP.md) for initial setup instructions, especially for configuring environment variables.
+
 ## Development Commands
 
 ### Running the Development Server
@@ -125,7 +127,11 @@ When implementing Supabase:
 
 ## Environment Variables
 
-Create a `.env.local` file (not committed to git) with:
+**For detailed setup instructions, see [SETUP.md](./SETUP.md).**
+
+### Quick Reference
+
+Required environment variables:
 
 ```bash
 # Anthropic
@@ -136,6 +142,22 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
+
+### Team Workflow (Recommended)
+
+For team development, use Vercel's environment variable management:
+
+```bash
+# First-time setup (one team member)
+vercel env add ANTHROPIC_API_KEY
+vercel env add NEXT_PUBLIC_SUPABASE_URL
+vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+# All team members (including the one who added them)
+npm run env:pull
+```
+
+This keeps secrets secure, synced, and out of git. See [SETUP.md](./SETUP.md) for full details.
 
 ## TypeScript Configuration
 
