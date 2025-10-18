@@ -32,6 +32,20 @@ export default function NewInterviewPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    const trimmedTranscript = formData.transcript.trim();
+    const trimmedProductIdea = formData.productIdea.trim();
+
+    if (!trimmedTranscript) {
+      toast.error('Transcript is required before running analysis.');
+      return;
+    }
+
+    if (!trimmedProductIdea) {
+      toast.error('Product idea is required for context.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -61,8 +75,8 @@ export default function NewInterviewPage() {
       addInterview(customerId, {
         id: interviewId,
         uploadedAt: new Date(formData.interviewDate),
-        transcript: formData.transcript,
-        productIdea: formData.productIdea,
+        transcript: trimmedTranscript,
+        productIdea: trimmedProductIdea,
         summary: null,
         insights: null,
         alignment: null,
@@ -78,8 +92,8 @@ export default function NewInterviewPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           interviewId,
-          transcript: formData.transcript,
-          productIdea: formData.productIdea,
+          transcript: trimmedTranscript,
+          productIdea: trimmedProductIdea,
         }),
       });
 

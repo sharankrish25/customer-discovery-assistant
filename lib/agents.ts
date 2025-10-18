@@ -77,91 +77,271 @@ const AGENT_CONFIG = {
 };
 
 // ============================================================================
-// Mock Data (for when API key is missing)
+// Transcript-derived fallback helpers (used when API key is unavailable)
 // ============================================================================
 
-const MOCK_SUMMARY: SummaryOutput = {
-  summary: {
-    bullets: [
-      'Customer manually consolidates feedback from multiple channels (Slack, email, support tickets), spending 3-4 hours weekly',
-      'Struggles with accurate prioritization due to fragmented data and inability to quantify customer demand',
-      'Feels frustrated and ineffective despite significant effort invested in the process',
-      'Desires an automated solution with AI-powered categorization and trend analysis',
-    ],
-    tone: 'neutral',
-    confidence: 0.87,
-  },
+const NEGATIVE_TERMS = [
+  'no',
+  'not',
+  'never',
+  'already',
+  'satisfied',
+  'happy',
+  'fine',
+  'works',
+  'doesnt',
+  "doesn't",
+  'donot',
+  "don't",
+  'isnt',
+  "isn't",
+];
+
+const WHY_IT_MATTERS: Record<InsightsOutput['insights'][number]['type'], string> = {
+  existing_process: 'Shows how the customer handles the problem today, revealing workflow anchors.',
+  motivation: 'Clarifies the underlying goals driving their decisions and willingness to change.',
+  unmet_need: 'Highlights a gap the customer explicitly or implicitly wants solved.',
+  pain_magnitude: 'Illustrates recurring cost or effort, signaling urgency and value.',
+  past_attempt: 'Shows what they tried before and why it fell short, guiding differentiation.',
 };
 
-const MOCK_INSIGHTS: InsightsOutput = {
-  insights: [
-    {
-      title: 'Manual weekly consolidation routine',
+function stripSpeakerLabel(sentence: string): string {
+  return sentence.replace(/^[A-Za-z\s]{1,30}:\s*/, '').trim();
+}
+
+function splitIntoSentences(transcript: string): string[] {
+  const normalized = transcript.replace(/\r\n/g, '\n');
+  const lines = normalized
+    .split('\n')
+    .map((line) => stripSpeakerLabel(line.trim()))
+    .filter(Boolean);
+
+  const sentences: string[] = [];
+
+  for (const line of lines) {
+    const parts = line
+      .replace(/([.!?])\s+/g, '$1|')
+      .split('|')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (parts.length === 0) {
+      sentences.push(line);
+      continue;
+    }
+
+    sentences.push(...parts);
+  }
+
+  // Deduplicate while preserving order
+  const seen = new Set<string>();
+  return sentences.filter((sentence) => {
+    const key = sentence.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function truncateSentence(sentence: string, maxLength = 180): string {
+  if (sentence.length <= maxLength) return sentence;
+  return `${sentence.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function deriveSummaryFallback(transcript: string): SummaryOutput {
+  const sentences = splitIntoSentences(transcript);
+  const bullets = sentences
+    .filter((sentence) => sentence.split(/\s+/).length >= 6)
+    .slice(0, 6)
+    .map((sentence) => truncateSentence(sentence, 200));
+
+  if (bullets.length === 0 && transcript.trim().length > 0) {
+    bullets.push(truncateSentence(stripSpeakerLabel(transcript.trim()), 200));
+  }
+
+  if (bullets.length === 0) {
+    bullets.push('Transcript was empty. Please provide the customer interview text to generate analysis.');
+  }
+
+  const confidence = clampConfidence(
+    bullets.length >= 4 ? 0.6 : bullets.length >= 2 ? 0.5 : 0.35,
+    transcript
+  );
+
+  return {
+    summary: {
+      bullets,
+      tone: 'neutral',
+      confidence,
+    },
+  };
+}
+
+function classifyInsight(sentence: string): InsightsOutput['insights'][number]['type'] | null {
+  const lower = sentence.toLowerCase();
+
+  if (/(tried|attempted|experiment|pilot|tested|used to|used)/.test(lower)) {
+    return 'past_attempt';
+  }
+  if (/(need|wish|want|looking for|missing|struggl|frustrat|blocked|gap)/.test(lower)) {
+    return 'unmet_need';
+  }
+  if (/(spend|hour|time|cost|budget|expens|waste|every week|each week|per week|per day)/.test(lower)) {
+    return 'pain_magnitude';
+  }
+  if (/(currently|right now|we use|i use|process|workflow|every morning|each month)/.test(lower)) {
+    return 'existing_process';
+  }
+  if (/(goal|trying to|so that|so we can|hoping to|want to achieve|priority)/.test(lower)) {
+    return 'motivation';
+  }
+
+  if (lower.includes('need') || lower.includes('problem')) {
+    return 'unmet_need';
+  }
+
+  return null;
+}
+
+function evidenceLevel(sentence: string): InsightsOutput['insights'][number]['evidence_level'] {
+  const lower = sentence.toLowerCase();
+  if (/[0-9]/.test(sentence) || /(hour|day|week|month|year|budget)/.test(lower)) {
+    return 'high';
+  }
+  if (sentence.length > 140 || /(really|very|constantly|often|always|never)/.test(lower)) {
+    return 'med';
+  }
+  return 'low';
+}
+
+function titleFromSentence(sentence: string): string {
+  const words = sentence.split(/\s+/).slice(0, 10);
+  const raw = words.join(' ');
+  if (!raw) return 'Customer insight';
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+function deriveInsightsFallback(transcript: string): InsightsOutput {
+  const sentences = splitIntoSentences(transcript);
+  const insights: InsightsOutput['insights'] = [];
+
+  for (const sentence of sentences) {
+    if (insights.length >= 10) break;
+
+    const type = classifyInsight(sentence);
+    if (!type) continue;
+
+    const title = truncateSentence(titleFromSentence(sentence), 80);
+
+    insights.push({
+      title,
+      type,
+      quotes: [
+        {
+          text: truncateSentence(sentence, 200),
+          start_sec: null,
+        },
+      ],
+      why_it_matters: WHY_IT_MATTERS[type],
+      evidence_level: evidenceLevel(sentence),
+    });
+  }
+
+  if (insights.length === 0 && transcript.trim()) {
+    const fallbackSentence = truncateSentence(stripSpeakerLabel(transcript.trim()), 200);
+    insights.push({
+      title: 'Initial customer signal',
       type: 'existing_process',
       quotes: [
         {
-          text: 'I spend probably 3-4 hours a week just trying to consolidate it all into a spreadsheet',
-          start_sec: 45,
+          text: fallbackSentence,
+          start_sec: null,
         },
       ],
-      why_it_matters: 'Shows significant recurring time investment in manual data aggregation, indicating a strong need for automation.',
-      evidence_level: 'high',
-    },
-    {
-      title: 'Unable to answer demand questions from leadership',
-      type: 'pain_magnitude',
-      quotes: [
-        {
-          text: 'The CEO asked me "how many customers asked for X" and I genuinely didn\'t know the exact number',
-          start_sec: 102,
-        },
-      ],
-      why_it_matters: 'Impacts credibility with leadership and ability to make data-driven prioritization decisions.',
-      evidence_level: 'high',
-    },
-    {
-      title: 'Desire for automated categorization',
-      type: 'unmet_need',
-      quotes: [
-        {
-          text: 'ideally it would just automatically gather everything and categorize it. Show me trends, maybe use AI or something',
-          start_sec: 148,
-        },
-      ],
-      why_it_matters: 'Expresses a clear gap between current manual process and desired automated solution.',
-      evidence_level: 'med',
-    },
-  ],
-  confidence: 0.82,
-};
+      why_it_matters: WHY_IT_MATTERS.existing_process,
+      evidence_level: 'low',
+    });
+  }
 
-const MOCK_ALIGNMENT: AlignmentOutput = {
-  alignment: {
-    supports: [
-      {
-        insight_title: 'Time-consuming manual aggregation process',
-        quote:
-          'I spend probably 3-4 hours a week just trying to consolidate it all into a spreadsheet',
-        rationale:
-          'Product idea directly addresses the manual consolidation pain point with automation',
-      },
-      {
-        insight_title: 'Need for automation and AI-powered insights',
-        quote:
-          'ideally it would just automatically gather everything and categorize it. Show me trends, maybe use AI or something',
-        rationale: 'Customer explicitly requests automation and AI features, which align with the product concept',
-      },
-    ],
-    contradicts: [],
-    neutral: [
-      {
-        insight_title: 'Inability to quantify customer demand accurately',
-        rationale:
-          'While this insight shows a need for better tracking, it doesn\'t directly validate or invalidate the specific product approach',
-      },
-    ],
-  },
-};
+  const confidence = clampConfidence(
+    insights.length >= 5 ? 0.65 : insights.length >= 3 ? 0.55 : 0.4,
+    transcript
+  );
+
+  return {
+    insights,
+    confidence,
+  };
+}
+
+function extractIdeaKeywords(idea: string): string[] {
+  return Array.from(
+    new Set(
+      idea
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((word) => word.length >= 4)
+    )
+  );
+}
+
+function containsKeyword(text: string, keyword: string): boolean {
+  const pattern = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+  return pattern.test(text);
+}
+
+function deriveAlignmentFallback(
+  insights: InsightsOutput,
+  idea: string
+): AlignmentOutput {
+  const keywords = extractIdeaKeywords(idea);
+  const supports: AlignmentOutput['alignment']['supports'] = [];
+  const contradicts: AlignmentOutput['alignment']['contradicts'] = [];
+  const neutral: AlignmentOutput['alignment']['neutral'] = [];
+
+  for (const insight of insights.insights) {
+    const quote = insight.quotes[0]?.text || insight.title;
+    const reference = `${insight.title} ${quote}`.toLowerCase();
+    const matchedKeyword = keywords.find((keyword) => containsKeyword(reference, keyword));
+    const hasNegative = NEGATIVE_TERMS.some((term) => containsKeyword(reference, term));
+
+    if (matchedKeyword && !hasNegative) {
+      supports.push({
+        insight_title: insight.title,
+        quote: truncateSentence(quote, 140),
+        rationale: `Mentions "${matchedKeyword}" which aligns with the product vision.`,
+      });
+    } else if (matchedKeyword && hasNegative) {
+      contradicts.push({
+        insight_title: insight.title,
+        quote: truncateSentence(quote, 140),
+        rationale: `Highlights hesitation around "${matchedKeyword}", which challenges the vision.`,
+      });
+    } else {
+      neutral.push({
+        insight_title: insight.title,
+        rationale: 'Insight is informative but does not map cleanly to the product vision keywords.',
+      });
+    }
+  }
+
+  if (supports.length === 0 && insights.insights.length > 0) {
+    const first = insights.insights[0];
+    supports.push({
+      insight_title: first.title,
+      quote: truncateSentence(first.quotes[0]?.text || first.title, 140),
+      rationale: 'Reinforces a customer statement that relates indirectly to the vision; treat as directional evidence.',
+    });
+  }
+
+  return {
+    alignment: {
+      supports,
+      contradicts,
+      neutral,
+    },
+  };
+}
 
 // ============================================================================
 // Agent Functions
@@ -180,8 +360,8 @@ export async function analyzeSummary(
 ): Promise<SummaryOutput> {
   // Return mock if no API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('No ANTHROPIC_API_KEY found, returning mock summary data');
-    return MOCK_SUMMARY;
+    console.warn('No ANTHROPIC_API_KEY found, falling back to transcript-derived summary');
+    return deriveSummaryFallback(transcript);
   }
 
   const system = `You are a specialized customer discovery interview summarizer designed for early-stage startup founders.
@@ -264,8 +444,8 @@ Requirements:
 export async function extractInsights(transcript: string): Promise<InsightsOutput> {
   // Return mock if no API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('No ANTHROPIC_API_KEY found, returning mock insights data');
-    return MOCK_INSIGHTS;
+    console.warn('No ANTHROPIC_API_KEY found, falling back to transcript-derived insights');
+    return deriveInsightsFallback(transcript);
   }
 
   const system = `You are an Insight Extraction Agent for customer discovery interviews.
@@ -374,8 +554,8 @@ export async function analyzeAlignment(
 ): Promise<AlignmentOutput> {
   // Return mock if no API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('No ANTHROPIC_API_KEY found, returning mock alignment data');
-    return MOCK_ALIGNMENT;
+    console.warn('No ANTHROPIC_API_KEY found, falling back to transcript-derived alignment');
+    return deriveAlignmentFallback(insights, idea);
   }
 
   const system = `You are an Alignment Analyst for early-stage founders. Your job is to read a customer-discovery interview transcript and produce a Vision Alignment Analysis that tells the founder which statements support, contradict, or are neutral relative to their product vision.
@@ -479,11 +659,14 @@ export async function runAutoAnalysis(
 }> {
   // If no API key, return all mocks immediately
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('No ANTHROPIC_API_KEY found, returning all mock data');
+    console.warn('No ANTHROPIC_API_KEY found, using transcript-derived fallbacks for analysis');
+    const summary = deriveSummaryFallback(transcript);
+    const insights = deriveInsightsFallback(transcript);
+    const alignment = deriveAlignmentFallback(insights, idea);
     return {
-      summary: MOCK_SUMMARY,
-      insights: MOCK_INSIGHTS,
-      alignment: MOCK_ALIGNMENT,
+      summary,
+      insights,
+      alignment,
     };
   }
 

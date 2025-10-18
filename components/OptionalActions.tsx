@@ -57,6 +57,12 @@ export function OptionalActions({
 
   const handleCoach = async () => {
     const busyKey = `${interviewId}-coach`;
+    const sanitizedTranscript = transcript.trim();
+
+    if (!sanitizedTranscript) {
+      toast.error('Transcript is required before generating coaching.');
+      return;
+    }
 
     // If already has coaching data, just show it
     if (hasCoaching && coaching) {
@@ -78,7 +84,7 @@ export function OptionalActions({
       const response = await fetch('/api/coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId, transcript }),
+        body: JSON.stringify({ interviewId, transcript: sanitizedTranscript }),
       });
 
       const result = await response.json();
@@ -107,6 +113,12 @@ export function OptionalActions({
 
   const handleNextQuestions = async () => {
     const busyKey = `${interviewId}-questions`;
+    const sanitizedTranscript = transcript.trim();
+
+    if (!sanitizedTranscript) {
+      toast.error('Transcript is required before generating next questions.');
+      return;
+    }
 
     // If already has questions data, just show it
     if (hasQuestions && betterQuestions) {
@@ -127,7 +139,7 @@ export function OptionalActions({
       const response = await fetch('/api/next-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId, transcript, productIdea, alignment, coaching }),
+        body: JSON.stringify({ interviewId, transcript: sanitizedTranscript, productIdea, alignment, coaching }),
       });
 
       const result = await response.json();

@@ -2,7 +2,14 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { callClaude, extractJson, truncateForLLM } from './anthropic';
 import { CoachingSchema, BetterQuestionsSchema, FollowupSchema } from './zod-advanced';
-import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput, AlignmentOutput } from '@/types/ai';
+import type {
+  CoachingOutput,
+  BetterQuestionsOutput,
+  FollowUpEmailOutput,
+  AlignmentOutput,
+  CoachingBook,
+  CoachingReason,
+} from '@/types/ai';
 
 // ============================================================================
 // Constants
@@ -25,80 +32,363 @@ const HAIKU_CONFIG = {
 };
 
 // ============================================================================
-// Mock Data (for when API key is missing)
+// Transcript-derived fallback helpers (used when API key is unavailable)
 // ============================================================================
 
-const MOCK_COACHING: CoachingOutput = {
-  highlights: [
-    {
-      span_text: "If you had a tool that could solve this, what would it look like?",
-      reason: "hypothetical-question",
-      book: "The Mom Test",
-      suggestion: 'Focus on past behavior instead: "Walk me through the last time you tried to solve this problem. What tools or solutions did you try?"',
+interface QuestionMetadata {
+  reason: CoachingReason;
+  book: CoachingBook;
+  suggestion: string;
+  advice: {
+    book: CoachingBook;
+    what_to_improve: string;
+    example_rewrite: string;
+  };
+}
+
+const WHY_SEQUENCE: BetterQuestionsOutput['questions'][number]['why'][] = [
+  'TMT: past-behavior',
+  'LCD: frequency/workflow/alternative',
+  'TH: story depth',
+];
+
+function stripSpeakerLabel(line: string): string {
+  return line.replace(/^[A-Za-z\s]{1,30}:\s*/, '').trim();
+}
+
+function splitIntoSentences(transcript: string): string[] {
+  const normalized = transcript.replace(/\r\n/g, '\n');
+  const lines = normalized
+    .split('\n')
+    .map((line) => stripSpeakerLabel(line.trim()))
+    .filter(Boolean);
+
+  const sentences: string[] = [];
+  for (const line of lines) {
+    const parts = line
+      .replace(/([.!?])\s+/g, '$1|')
+      .split('|')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (parts.length === 0) {
+      sentences.push(line);
+    } else {
+      sentences.push(...parts);
+    }
+  }
+
+  const seen = new Set<string>();
+  return sentences.filter((sentence) => {
+    const key = sentence.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function truncateSentence(sentence: string, maxLength = 160): string {
+  if (sentence.length <= maxLength) return sentence;
+  return `${sentence.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function classifyQuestion(question: string): QuestionMetadata {
+  const lower = question.toLowerCase();
+
+  if (/(would|could|might|will you|if you|imagine)/.test(lower)) {
+    return {
+      reason: 'fluff-hypothetical',
+      book: 'The Mom Test',
+      suggestion:
+        'Swap hypotheticals for past behavior: ask about the last time this situation happened and what they did.',
+      advice: {
+        book: 'The Mom Test',
+        what_to_improve: 'Avoid hypothetical solution talk. Anchor on specific past events.',
+        example_rewrite:
+          'Instead of "Would you use this?", ask "Walk me through the last time you tried to solve this. What happened?"',
+      },
+    };
+  }
+
+  if (/(do you think|does that sound good|is that helpful|would you buy|do you like)/.test(lower)) {
+    return {
+      reason: 'seeking-compliment',
+      book: 'The Mom Test',
+      suggestion:
+        'Compliment-seeking invites polite lies. Ask what they currently do and why instead.',
+      advice: {
+        book: 'The Mom Test',
+        what_to_improve: 'Stop asking if the idea sounds good. Probe for facts about their workflow.',
+        example_rewrite:
+          'Instead of "Do you think this is helpful?", ask "How are you handling this today? What is frustrating about it?"',
+      },
+    };
+  }
+
+  if (/(how much|would you pay|price|pricing|cost you)/.test(lower)) {
+    return {
+      reason: 'request-for-opinion',
+      book: 'Lean Customer Development',
+      suggestion:
+        'Rather than price opinions, uncover current spending or alternatives they pay for.',
+      advice: {
+        book: 'Lean Customer Development',
+        what_to_improve: 'Avoid pricing hypotheticals. Investigate actual spend and existing solutions.',
+        example_rewrite:
+          'Instead of "How much would you pay?", ask "What do you pay for this problem today? What happens if you ignore it?"',
+      },
+    };
+  }
+
+  if (/(shouldn\'t you|don\'t you think|isn\'t it better|right\?)/.test(lower)) {
+    return {
+      reason: 'leading-question',
+      book: 'Talking to Humans',
+      suggestion:
+        'Let the customer tell the story without steering. Use open prompts like "Tell me about...".',
+      advice: {
+        book: 'Talking to Humans',
+        what_to_improve: 'Remove the pitch from your questions. Open with context-free prompts.',
+        example_rewrite:
+          'Instead of "Don’t you think a dashboard would help?", ask "How do you keep track of this today?"',
+      },
+    };
+  }
+
+  if (/(tell me more|walk me through|what happened next|how did that go)/.test(lower)) {
+    return {
+      reason: 'past-behavior-good',
+      book: 'Talking to Humans',
+      suggestion: 'Great job digging into past behavior. Keep following the timeline step by step.',
+      advice: {
+        book: 'Talking to Humans',
+        what_to_improve: 'Continue chaining past-behavior follow-ups to maximize learning depth.',
+        example_rewrite:
+          'Nice job. Next ask: "When that happened, what did you do first? What did you evaluate next?"',
+      },
+    };
+  }
+
+  return {
+    reason: 'too-broad',
+    book: 'Talking to Humans',
+    suggestion:
+      'Narrow the question to a specific recent moment so the customer gives concrete details.',
+    advice: {
+      book: 'Talking to Humans',
+      what_to_improve: 'Broad prompts lead to vague answers. Ask for the last specific time instead.',
+      example_rewrite:
+        'Instead of "How do you handle support?", ask "Tell me about the last support escalation that got messy."',
+    },
+  };
+}
+
+function deriveCoachingFallback(transcript: string): CoachingOutput {
+  const normalized = transcript.replace(/\r\n/g, '\n');
+  const lines = normalized.split('\n');
+  const highlights: CoachingOutput['highlights'] = [];
+  const adviceMap = new Map<CoachingReason, CoachingOutput['advice'][number]>();
+
+  let cursor = 0;
+  for (const rawLine of lines) {
+    const lineLength = rawLine.length;
+    const lineStart = cursor;
+    cursor += lineLength + 1; // include newline
+
+    const trimmed = rawLine.trim();
+    if (!trimmed.includes('?')) continue;
+
+    const questionRegex = /([^?.!]*?\?)/g;
+    let match: RegExpExecArray | null;
+    while ((match = questionRegex.exec(trimmed)) !== null) {
+      const segment = match[1];
+      const clean = segment.trim();
+      if (clean.length < 4) continue;
+
+      const leadingWhitespace = segment.length - segment.trimStart().length;
+      const start = normalized.indexOf(clean, lineStart + (match.index ?? 0) + leadingWhitespace);
+      if (start === -1) continue;
+      const end = start + clean.length;
+
+      const meta = classifyQuestion(clean);
+
+      highlights.push({
+        span_text: truncateSentence(clean, 220),
+        reason: meta.reason,
+        book: meta.book,
+        suggestion: meta.suggestion,
+        start_char: start,
+        end_char: end,
+      });
+
+      if (!adviceMap.has(meta.reason)) {
+        adviceMap.set(meta.reason, meta.advice);
+      }
+    }
+  }
+
+  if (highlights.length === 0 && transcript.trim()) {
+    const sample = truncateSentence(stripSpeakerLabel(transcript.trim()), 140);
+    const meta = classifyQuestion('Can you tell me more about that?');
+    highlights.push({
+      span_text: sample || 'No interviewer questions detected in transcript.',
+      reason: meta.reason,
+      book: meta.book,
+      suggestion: 'Ensure the transcript includes the interviewer’s questions so we can coach specific moments.',
       start_char: 0,
-      end_char: 66
-    },
-    {
-      span_text: "How did that make you feel?",
-      reason: "request-for-opinion",
-      book: "The Mom Test",
-      suggestion: 'Instead of asking about feelings, ask about specific actions: "What did you do next?" or "How did this impact your workflow?"',
-      start_char: 100,
-      end_char: 128
+      end_char: Math.min(sample.length, transcript.length),
+    });
+    adviceMap.set(meta.reason, meta.advice);
+  }
+
+  const advice = Array.from(adviceMap.values()).slice(0, 4);
+
+  return {
+    highlights: highlights.slice(0, 20),
+    advice,
+  };
+}
+
+function extractKeywords(text: string): string[] {
+  return Array.from(
+    new Set(
+      text
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((word) => word.length >= 4)
+    )
+  );
+}
+
+function buildQuestionsFromTranscript(
+  transcript: string,
+  alignment: AlignmentOutput
+): BetterQuestionsOutput['questions'] {
+  const sentences = splitIntoSentences(transcript).filter((sentence) => sentence.length > 25);
+  const anchors = sentences.slice(0, 6);
+
+  const linked: string[] = [
+    ...alignment.alignment.supports.map((item) => item.insight_title),
+    ...alignment.alignment.neutral.map((item) => item.insight_title),
+    ...alignment.alignment.contradicts.map((item) => item.insight_title),
+  ].filter(Boolean);
+
+  const questions: BetterQuestionsOutput['questions'] = [];
+
+  anchors.forEach((sentence, index) => {
+    if (questions.length >= 6) return;
+
+    const lower = sentence.toLowerCase();
+    let prompt = sentence;
+
+    if (lower.startsWith('i ') || lower.startsWith('we ')) {
+      prompt = sentence.replace(/^(I|We)\s+/i, '');
     }
-  ],
-  advice: [
-    {
-      book: "The Mom Test",
-      what_to_improve: "Avoid hypothetical questions about potential solutions. Focus on past behavior and specific examples.",
-      example_rewrite: 'Instead of "If you had a tool...", ask "What tools have you tried to solve this problem? What happened when you used them?"'
-    },
-    {
-      book: "Talking to Humans",
-      what_to_improve: "When you get a good past-behavior story, dig deeper into the workflow and decision-making process.",
-      example_rewrite: 'Follow up with: "Walk me through each step of that process. Where did it break down? What took the most time?"'
+
+    const questionText = `Can you walk me through the last time ${prompt.replace(
+      /[.?!"]+$/g,
+      ''
+    )}?`;
+
+    const linkedTo = linked[index] || truncateSentence(sentence, 80);
+    const why = WHY_SEQUENCE[index % WHY_SEQUENCE.length];
+
+    questions.push({
+      text: truncateSentence(questionText, 220),
+      linked_to: linkedTo,
+      why,
+      style: 'past-behavior',
+    });
+  });
+
+  return questions;
+}
+
+function deriveQuestionsFallback(
+  transcript: string,
+  productIdea: string,
+  alignment: AlignmentOutput,
+  coaching: CoachingOutput | null
+): BetterQuestionsOutput {
+  let questions = buildQuestionsFromTranscript(transcript, alignment);
+
+  const keywords = extractKeywords(productIdea);
+
+  if (questions.length < 3) {
+    const extras: BetterQuestionsOutput['questions'] = [];
+    for (const keyword of keywords) {
+      if (extras.length + questions.length >= 6) break;
+      extras.push({
+        text: `Walk me through the last time ${keyword} came up. What triggered it and what did you do?`,
+        linked_to: `Explore ${keyword}`,
+        why: WHY_SEQUENCE[(questions.length + extras.length) % WHY_SEQUENCE.length],
+        style: 'past-behavior',
+      });
     }
-  ]
-};
+    questions = [...questions, ...extras];
+  }
 
-const MOCK_QUESTIONS: BetterQuestionsOutput = {
-  questions: [
-    {
-      text: "Walk me through the last time you had to consolidate feedback for a prioritization decision. What was each step?",
-      linked_to: "Time-consuming manual aggregation process",
-      why: "LCD: frequency/workflow/alternative",
-      style: "past-behavior"
-    },
-    {
-      text: "What other tools or methods have you tried to solve the feedback consolidation problem? What happened with each one?",
-      linked_to: "Time-consuming manual aggregation process",
-      why: "LCD: frequency/workflow/alternative",
-      style: "past-behavior"
-    },
-    {
-      text: "Tell me about the conversation with your CEO when you couldn't answer how many customers wanted feature X. What happened next?",
-      linked_to: "Inability to quantify customer demand accurately",
-      why: "TH: story depth",
-      style: "past-behavior"
+  if (coaching && coaching.highlights.some((h) => h.reason === 'missed-probe')) {
+    questions.unshift({
+      text: 'Earlier you mentioned a part of the story that moved quickly. What happened right after the first sign of trouble?',
+      linked_to: coaching.highlights.find((h) => h.reason === 'missed-probe')?.span_text || 'Missed probe',
+      why: 'TH: story depth',
+      style: 'past-behavior',
+    });
+  }
+
+  const uniqueQuestions = new Map<string, BetterQuestionsOutput['questions'][number]>();
+  for (const question of questions) {
+    if (uniqueQuestions.size >= 6) break;
+    const key = question.text.toLowerCase();
+    if (!uniqueQuestions.has(key)) {
+      uniqueQuestions.set(key, question);
     }
-  ]
-};
+  }
 
-const MOCK_EMAIL: FollowUpEmailOutput = {
-  subject: "Following up on our conversation about product feedback consolidation",
-  body: `Thank you for taking the time to speak with me yesterday about your product feedback process. I really appreciated your candor about the challenges you're facing.
+  const result = Array.from(uniqueQuestions.values());
+  while (result.length < 3) {
+    const fallback = productIdea
+      ? `Walk me through the most recent moment when you evaluated ${productIdea}. What did you compare it against?`
+      : 'Tell me about the last time you worked around this problem. What steps did you take?';
+    result.push({
+      text: fallback,
+      linked_to: productIdea || 'Recent workaround',
+      why: WHY_SEQUENCE[result.length % WHY_SEQUENCE.length],
+      style: 'past-behavior',
+    });
+  }
 
-I was particularly struck by your example of spending hours consolidating feedback across Slack, email, and support tickets for prioritization decisions.
+  return { questions: result.slice(0, 12) };
+}
 
-A few quick follow-up questions:
+function deriveEmailFallback(
+  profile: { name: string; role?: string },
+  insight: { title: string; quote: string },
+  desiredCommitment: string
+): FollowUpEmailOutput {
+  const firstName = profile.name ? profile.name.split(' ')[0] : 'there';
+  const quote = truncateSentence(insight.quote || insight.title, 140);
+  const commitment = desiredCommitment || 'a short follow-up conversation';
 
-1. When you had to go through hundreds of messages for that feature prioritization decision, roughly how long did that take?
-2. How often does your CEO or other stakeholders ask you for quantified customer demand data?
+  const subjectBase = insight.title || 'our interview';
+  const subject = truncateSentence(`Following up on ${subjectBase.toLowerCase()}`, 80);
 
-Would you be open to a 15-minute follow-up call next week to dig a bit deeper into your workflow?
+  const body = [
+    `Hi ${firstName},`,
+    '',
+    `Thanks again for sharing your experience about "${quote}".`,
+    `I'd love to continue the conversation and dig into the specifics you mentioned. Would you be open to ${commitment}?`,
+    '',
+    'Best,',
+    'Your interview partner',
+  ].join('\n');
 
-Thanks again for your time and insights.`
-};
+  return {
+    subject,
+    body,
+  };
+}
 
 // ============================================================================
 // Helper: Load coaching system prompt
@@ -240,8 +530,8 @@ Return JSON only (no prose, no code fences):
 export async function analyzeQuality(transcript: string): Promise<CoachingOutput> {
   // Return mock if no API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('No ANTHROPIC_API_KEY found, returning mock coaching data');
-    return MOCK_COACHING;
+    console.warn('No ANTHROPIC_API_KEY found, using transcript-derived coaching fallback');
+    return deriveCoachingFallback(transcript);
   }
 
   const system = loadCoachingSystemPrompt();
@@ -286,8 +576,8 @@ export async function generateQuestions(
 ): Promise<BetterQuestionsOutput> {
   // Return mock if no API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('No ANTHROPIC_API_KEY found, returning mock questions data');
-    return MOCK_QUESTIONS;
+    console.warn('No ANTHROPIC_API_KEY found, using transcript-derived question fallback');
+    return deriveQuestionsFallback(transcript, productIdea, alignment, coaching);
   }
 
   const system = `Generate non-leading, past-behavior questions to close gaps based on:
@@ -369,8 +659,8 @@ export async function generateEmail(
 ): Promise<FollowUpEmailOutput> {
   // Return mock if no API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('No ANTHROPIC_API_KEY found, returning mock email data');
-    return MOCK_EMAIL;
+    console.warn('No ANTHROPIC_API_KEY found, using transcript-derived email fallback');
+    return deriveEmailFallback(profile, insight, desiredCommitment);
   }
 
   const system = `Draft a concise, bias-free follow-up email that references one quote and proposes exactly ONE clear next step (commitment): e.g., 15m call / prototype trial / intro / share anonymized data sample. No pitching. Max 120 words.
