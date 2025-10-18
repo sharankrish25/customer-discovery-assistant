@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,10 +55,7 @@ export default function CustomerProfilePage() {
       <div className="container mx-auto px-4 py-8">
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-muted-foreground">Customer not found</p>
-          <Link
-            href="/dashboard"
-            className="mt-4 inline-block text-primary hover:underline"
-          >
+          <Link href="/dashboard" className="mt-4 inline-block text-primary hover:underline">
             Return to Dashboard
           </Link>
         </div>

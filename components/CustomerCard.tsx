@@ -3,17 +3,16 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CustomerProfile } from '@/types/models';
+import type { CustomerProfile } from '@/types/models';
 
 interface CustomerCardProps {
   profile: CustomerProfile;
 }
 
-function getLastInterviewDate(profile: CustomerProfile): string {
-  if (!profile.interviews || profile.interviews.length === 0) return '—';
+function getLastInterviewDate(profile: CustomerProfile): Date | null {
+  if (!profile.interviews || profile.interviews.length === 0) return null;
   const dates = profile.interviews.map((i) => new Date(i.uploadedAt));
-  const latest = new Date(Math.max(...dates.map((d) => d.getTime())));
-  return latest.toLocaleDateString();
+  return new Date(Math.max(...dates.map((d) => d.getTime())));
 }
 
 function getAnalysisSnippet(profile: CustomerProfile): string {
@@ -50,7 +49,7 @@ export function CustomerCard({ profile }: CustomerCardProps) {
         <CardContent className="space-y-2">
           <p className="text-sm text-muted-foreground">
             Last interview:{' '}
-            {lastDate ? new Date(lastDate).toLocaleDateString() : '—'}
+            {lastDate ? lastDate.toLocaleDateString() : '—'}
           </p>
           <p className="text-sm line-clamp-2">
             <span className="font-medium">Latest analysis: </span>

@@ -19,3 +19,5 @@ export interface CustomerProfile {
   updatedAt: Date;
   interviews: Interview[];
 }
+
+export type Customer = CustomerProfile;

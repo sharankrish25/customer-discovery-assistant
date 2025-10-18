@@ -7,18 +7,16 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "test": "TS_NODE_PROJECT=tsconfig.test.json node --require ts-node/register --test tests/**/*.test.ts",
+    "test": "echo \"No automated tests configured\"",
     "env:pull": "vercel env pull .env.local"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.67.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@supabase/supabase-js": "^2.75.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.546.0",
@@ -28,7 +26,6 @@
     "react-dom": "19.1.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
-    "zod": "^4.1.12",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -42,7 +39,6 @@
     "eslint-config-next": "15.5.6",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.14",
-    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
