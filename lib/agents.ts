@@ -82,6 +82,10 @@ const MODEL: AnthropicModel = resolveAnthropicModelFromEnv(
   DEFAULT_ANTHROPIC_MODEL
 );
 
+// Model configurations for different tasks
+const SONNET_4_5: AnthropicModel = 'claude-sonnet-4-5-20250929'; // For reasoning/analysis
+const SONNET_3_7: AnthropicModel = 'claude-3-7-sonnet-20250219'; // For JSON parsing
+
 // Model-specific configurations
 const AGENT_CONFIG = {
   maxTokens: 4096, // Increased to handle full insights extraction with multiple insights + quotes
@@ -437,6 +441,10 @@ export async function analyzeSummary(
 /**
  * Extracts evidence-backed insights (pains, needs, motivations) from transcript.
  *
+ * Uses a two-step approach:
+ * 1. Claude Sonnet 4.5 for reasoning and insight extraction with extended thinking
+ * 2. Claude Sonnet 3.7 for JSON parsing and validation
+ *
  * @param transcript - The full interview transcript
  * @returns Structured insights with verbatim quotes and evidence levels
  */
@@ -447,94 +455,135 @@ export async function extractInsights(transcript: string): Promise<InsightsOutpu
     return deriveInsightsFallback(transcript);
   }
 
-  const system = `You are an Insight Extraction Agent for customer discovery interviews.
-Your job is to extract the most meaningful, evidence-backed insights from a transcript to help a young startup founder understand what is truly going on in the customer's world.
+  // Step 1: Use Claude Sonnet 4.5 with extended thinking for deep reasoning
+  const reasoningSystem = `You are an expert Insight Extraction Agent for customer discovery interviews.
+Your job is to analyze interview transcripts and extract the most meaningful, evidence-backed insights that help startup founders understand customer behavior, pain points, and needs.
 
-You DO NOT summarize the conversation.
-You surface what matters — with quotes.
+Your analysis should focus on:
+1. Existing processes & behaviors - What the customer ACTUALLY does today (workarounds, hacks, routines)
+2. Motivations & goals - What they're trying to achieve and why it matters
+3. Unmet needs & gaps - What is missing, blocked, or painful
+4. Magnitude of pain - How costly/urgent/recurring the issue is
+5. Past attempts - What they tried before & why it failed
 
-CRITICAL: You MUST return ONLY valid JSON. No markdown, no explanations, no code fences - just pure JSON.
+For each insight you identify, you must:
+- Anchor it to verbatim quotes from the transcript (no paraphrasing)
+- Explain why it matters to the business context
+- Assess the evidence level (low/med/high based on specificity, urgency, emotional weight)
+- Keep titles concise (≤12 words)
 
-You MUST extract insights related to:
-Category	Definition
-Existing processes & behaviors	What the customer ACTUALLY does today; workaround, hacks, routines
-Motivations & goals	What they're trying to achieve and why it matters
-Unmet needs & gaps	What is missing, blocked, or painful
-Magnitude of pain	How costly/urgent/recurring the issue is
-Past attempts	What they tried before & why it failed
+Your reasoning should:
+- Focus on high-signal insights (4-12 total)
+- Group multiple quotes under one insight if they reinforce the same point
+- Never hypothesize beyond what was explicitly stated
+- Adjust confidence based on transcript quality and evidence strength
 
-You MUST anchor every insight to the transcript using at least one verbatim quote.
-
-No quote = not an insight.
-Quotes should be short and specific, not paraphrased.
-
-Keep only high-signal insights (max 4-12).
-
-Titles must be short (≦ 12 words).
-
-why_it_matters should connect the quote to the business context (1–2 short sentences).
-
-evidence_level depends on:
-- low = vague or brief mention
-- med = repeated or clearly described
-- high = emotional, urgent, or has a workaround cost
-
-If the transcript is weak (little evidence), return fewer insights and lower confidence.
-
-If multiple quotes reinforce the same point, group them under one insight.
-
-Never hypothesize outside what was spoken.
-
-OUTPUT FORMAT: Return ONLY a valid JSON object. No markdown formatting, no code blocks, no explanatory text - just the JSON object starting with { and ending with }.`;
+Think deeply about what each quote reveals about the customer's world, their struggles, and their goals.`;
 
   const truncatedTranscript = truncateForLLM(transcript);
 
-  const user = `INTERVIEW TRANSCRIPT:
+  const reasoningUser = `INTERVIEW TRANSCRIPT:
 ${truncatedTranscript}
 
 TASK:
-Extract high-signal, evidence-backed insights from this transcript.
+Analyze this transcript deeply and extract the most meaningful, evidence-backed insights.
 
-CRITICAL: Return ONLY valid JSON - no markdown, no code fences, no explanatory text.
+Focus on finding:
+- Existing processes & behaviors the customer uses today
+- Their motivations and goals
+- Unmet needs and gaps they experience
+- The magnitude of pain (cost, urgency, frequency)
+- Past attempts and why they failed
 
-Return JSON exactly matching this structure:
+For each insight:
+1. Find verbatim quotes that support it
+2. Explain why it matters for business understanding
+3. Assess evidence level: low (vague mention), med (clearly described/repeated), high (emotional/urgent/has workaround cost)
+4. Create a concise title (≤12 words)
+
+Output your analysis as clear, structured reasoning. Explain what you found and why each insight matters.`;
+
+  // Step 2: Use Claude Sonnet 3.7 for JSON structuring
+  const jsonSystem = `You are a JSON formatting specialist.
+Your job is to take insight analysis and convert it into a precise JSON structure.
+
+CRITICAL: You MUST return ONLY valid JSON. No markdown, no explanations, no code fences - just pure JSON.
+
+The JSON must match this exact structure:
 {
-  "insights":[{
-    "title":"short title (≤12 words)",
-    "type":"existing_process|motivation|unmet_need|pain_magnitude|past_attempt",
-    "quotes":[{"text":"verbatim quote","start_sec":null}],
-    "why_it_matters":"1-2 sentences connecting quote to business context",
-    "evidence_level":"low|med|high"
+  "insights": [{
+    "title": "short title (≤12 words)",
+    "type": "existing_process|motivation|unmet_need|pain_magnitude|past_attempt",
+    "quotes": [{"text": "verbatim quote", "start_sec": null}],
+    "why_it_matters": "1-2 sentences connecting quote to business context",
+    "evidence_level": "low|med|high"
   }],
-  "confidence": 0..1
+  "confidence": 0.0-1.0
 }
-
-Requirements:
-- Each insight MUST have at least one verbatim quote from the transcript
-- Return 4-12 insights (keep only high-signal)
-- Titles must be ≤12 words
-- Quotes should be short and specific, not paraphrased
-- Group multiple quotes under one insight if they reinforce the same point
-- evidence_level: low=vague mention, med=clearly described/repeated, high=emotional/urgent/has workaround cost
-- If transcript is weak, return fewer insights (minimum 4) and lower confidence
-- Never hypothesize beyond what was said
 
 Categories:
 - existing_process: What they ACTUALLY do today (workarounds, hacks, routines)
 - motivation: What they're trying to achieve and why it matters
 - unmet_need: What is missing, blocked, or painful
 - pain_magnitude: How costly/urgent/recurring the issue is
-- past_attempt: What they tried before & why it failed
-
-IMPORTANT: Your response must be ONLY the JSON object. Do not include any markdown headers, explanations, code fences, or commentary. Start your response with { and end with }. No other text before or after the JSON.`;
+- past_attempt: What they tried before & why it failed`;
 
   try {
-    const response = await callClaude(MODEL, system, user, { ...AGENT_CONFIG, enforceJson: true });
-    const parsed = parseJsonSafely(response);
+    // Step 1: Get deep reasoning from Sonnet 4.5 with extended thinking
+    console.log('[extractInsights] Step 1: Using Claude Sonnet 4.5 for reasoning...');
+    const reasoningResponse = await callClaude(
+      SONNET_4_5,
+      reasoningSystem,
+      reasoningUser,
+      {
+        maxTokens: 8000,
+        temperature: 1, // Required for extended thinking
+        thinking: true, // Enable extended thinking for deep analysis
+        thinkingBudget: 6000,
+      }
+    );
+
+    console.log('[extractInsights] Step 2: Using Claude Sonnet 3.7 for JSON parsing...');
+
+    // Step 2: Convert reasoning to structured JSON with Sonnet 3.7
+    const jsonUser = `Based on this insight analysis, convert it to the exact JSON structure required.
+
+ANALYSIS:
+${reasoningResponse}
+
+CRITICAL: Return ONLY valid JSON matching this exact structure:
+{
+  "insights": [{
+    "title": "short title (≤12 words)",
+    "type": "existing_process|motivation|unmet_need|pain_magnitude|past_attempt",
+    "quotes": [{"text": "verbatim quote", "start_sec": null}],
+    "why_it_matters": "1-2 sentences",
+    "evidence_level": "low|med|high"
+  }],
+  "confidence": 0.0-1.0
+}
+
+Return 4-12 insights total. No markdown, no code fences, no explanatory text - just the JSON object starting with { and ending with }.`;
+
+    const jsonResponse = await callClaude(
+      SONNET_3_7,
+      jsonSystem,
+      jsonUser,
+      {
+        maxTokens: 6000,
+        temperature: 0.2, // Lower temperature for consistent JSON output
+        enforceJson: true,
+      }
+    );
+
+    // Parse and validate
+    const parsed = parseJsonSafely(jsonResponse);
     const result = InsightsSchema.parse(parsed);
 
     // Clamp confidence based on transcript length
     result.confidence = clampConfidence(result.confidence ?? 0.8, transcript);
+
+    console.log(`[extractInsights] Successfully extracted ${result.insights.length} insights with confidence ${result.confidence}`);
 
     return result;
   } catch (error) {
