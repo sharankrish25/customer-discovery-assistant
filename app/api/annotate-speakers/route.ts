@@ -1,33 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { identifySpeakers } from "@/lib/speaker-identification";
-import { normalizeAIError, isRateLimitError } from "@/lib/errors";
 
-/**
- * POST /api/annotate-speakers
- *
- * Annotates an interview transcript with speaker labels (Interviewer/Stakeholder).
- *
- * Request body:
- * {
- *   "transcript": "raw unlabeled transcript..."
- * }
- *
- * Response:
- * {
- *   "ok": true,
- *   "data": {
- *     "annotated": "Interviewer: ...\nStakeholder: ...",
- *     "confidence": 0.95,
- *     "speakers": {
- *       "interviewer": 10,
- *       "stakeholder": 12
- *     }
- *   }
- * }
- */
 export async function POST(request: NextRequest) {
   try {
-    // Parse and validate request body
     let body;
     try {
       body = await request.json();
@@ -40,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     const { transcript } = body;
 
-    if (!transcript || typeof transcript !== 'string') {
+    if (!transcript || typeof transcript !== "string") {
       return NextResponse.json(
         { ok: false, error: { code: "VALIDATION_ERR", message: "transcript is required and must be a string" } },
         { status: 400 }
@@ -55,41 +30,43 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Call speaker identification agent
       const result = await identifySpeakers(transcript);
 
-      return NextResponse.json({
-        ok: true,
-        data: result,
-      }, { status: 200 });
+      return NextResponse.json(
+        {
+          ok: true,
+          data: result,
+        },
+        { status: 200 }
+      );
     } catch (annotationError) {
-      // Normalize AI error
-      const normalized = normalizeAIError(annotationError);
-
-      // Return user-friendly error with appropriate HTTP status
-      const statusCode = isRateLimitError(normalized) ? 429 : 502;
+      console.error("Failed to annotate speakers:", annotationError);
+      const message =
+        annotationError instanceof Error
+          ? annotationError.message
+          : "Claude could not annotate the transcript";
 
       return NextResponse.json(
         {
           ok: false,
           error: {
-            code: normalized.code || "AI_ERR",
-            message: normalized.message,
+            code: "AI_ERR",
+            message,
           },
         },
-        { status: statusCode }
+        { status: 502 }
       );
     }
   } catch (error) {
     console.error("Speaker annotation route error:", error);
-    const normalized = normalizeAIError(error);
+    const message = error instanceof Error ? error.message : "Failed to annotate speakers";
 
     return NextResponse.json(
       {
         ok: false,
         error: {
-          code: normalized.code || "SERVER_ERR",
-          message: "Failed to annotate speakers",
+          code: "SERVER_ERR",
+          message,
         },
       },
       { status: 500 }
