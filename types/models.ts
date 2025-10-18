@@ -26,6 +26,7 @@ export interface Interview {
 export interface CustomerProfile {
   id: string;
   name: string;
+  email?: string;
   stakeholderType?: string;
   demographics?: string;
   createdAt: Date;

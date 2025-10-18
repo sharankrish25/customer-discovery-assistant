@@ -17,10 +17,12 @@ export default function NewInterviewPage() {
 
   const addCustomer = useStore((state) => state.addCustomer);
   const addInterview = useStore((state) => state.addInterview);
+  const updateInterview = useStore((state) => state.updateInterview);
   const getCustomerByName = useStore((state) => state.getCustomerByName);
 
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     stakeholderType: '',
     demographics: '',
     productIdea: '',
@@ -42,6 +44,7 @@ export default function NewInterviewPage() {
         addCustomer({
           id: customerId,
           name: formData.name,
+          email: formData.email,
           stakeholderType: formData.stakeholderType,
           demographics: formData.demographics,
           createdAt: new Date(),
@@ -89,6 +92,14 @@ export default function NewInterviewPage() {
         throw new Error(errorMsg);
       }
 
+      // Update the interview with the analysis results from the API
+      updateInterview(interviewId, {
+        summary: result.data.summary,
+        insights: result.data.insights,
+        alignment: result.data.alignment,
+        analysisStatus: 'complete',
+      });
+
       toast.success('Interview analyzed successfully!');
       router.push(`/interview/${interviewId}`);
     } catch (error) {
@@ -134,6 +145,19 @@ export default function NewInterviewPage() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   placeholder="e.g., Sarah Chen"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  placeholder="e.g., sarah@example.com"
                 />
               </div>
 

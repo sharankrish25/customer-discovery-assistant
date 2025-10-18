@@ -28,6 +28,15 @@ export default function DashboardPage() {
     toast.success('Demo data loaded!');
   };
 
+  // Get unique stakeholder types from existing customers
+  const stakeholderTypes = useMemo(() => {
+    const types = new Set<string>();
+    customers.forEach((c) => {
+      if (c.stakeholderType) types.add(c.stakeholderType);
+    });
+    return Array.from(types).sort();
+  }, [customers]);
+
   const filtered = useMemo(() => {
     let result = customers;
 
@@ -46,6 +55,17 @@ export default function DashboardPage() {
         return nameMatch || demoMatch || typeMatch;
       });
     }
+
+    // Sort by most recent interview (left to right, top to bottom)
+    result.sort((a, b) => {
+      const aLatest = a.interviews.length > 0
+        ? Math.max(...a.interviews.map(i => i.uploadedAt.getTime()))
+        : a.createdAt.getTime();
+      const bLatest = b.interviews.length > 0
+        ? Math.max(...b.interviews.map(i => i.uploadedAt.getTime()))
+        : b.createdAt.getTime();
+      return bLatest - aLatest; // Most recent first
+    });
 
     return result;
   }, [customers, search, filter]);
@@ -87,11 +107,11 @@ export default function DashboardPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All</SelectItem>
-                <SelectItem value="Patient">Patient</SelectItem>
-                <SelectItem value="Nurse">Nurse</SelectItem>
-                <SelectItem value="Doctor">Doctor</SelectItem>
-                <SelectItem value="Admin">Admin</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
+                {stakeholderTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
