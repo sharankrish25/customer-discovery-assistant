@@ -163,7 +163,7 @@ export default function InterviewDetailPage() {
                   <CardTitle>Coaching</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  <div className="max-h-96 overflow-y-auto space-y-4">
                     {interviewData.coaching.advice.map((item, idx) => {
                       const colors = BOOK_COLORS[item.book];
                       return (

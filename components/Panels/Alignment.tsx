@@ -13,7 +13,7 @@ export function Alignment({ alignment }: AlignmentProps) {
       </CardHeader>
       <CardContent>
         {alignment ? (
-          <div className="space-y-4">
+          <div className="max-h-80 overflow-y-auto space-y-4">
             <div className="pb-4 border-b">
               <h4 className="mb-2 text-sm font-semibold text-green-600">Supports</h4>
               {alignment.supports.length > 0 ? (

@@ -32,7 +32,7 @@ export function Insights({ insights }: InsightsProps) {
       </CardHeader>
       <CardContent>
         {insights && insights.length > 0 ? (
-          <div className="space-y-4">
+          <div className="max-h-80 overflow-y-auto space-y-4">
             {insights.map((item, index) => (
               <div key={index} className="space-y-2">
                 <div className="flex items-start gap-2">

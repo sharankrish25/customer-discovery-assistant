@@ -13,13 +13,15 @@ export function Summary({ summary }: SummaryProps) {
       </CardHeader>
       <CardContent>
         {summary ? (
-          <ul className="list-disc space-y-2 pl-5">
-            {summary.bullets.map((bullet, index) => (
-              <li key={index} className="text-sm">
-                {bullet}
-              </li>
-            ))}
-          </ul>
+          <div className="max-h-80 overflow-y-auto">
+            <ul className="list-disc space-y-2 pl-5">
+              {summary.bullets.map((bullet, index) => (
+                <li key={index} className="text-sm">
+                  {bullet}
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">
             No summary available yet. Analysis pending.

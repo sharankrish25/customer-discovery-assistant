@@ -24,8 +24,8 @@ export const BetterQuestionsSchema = z.object({
   questions: z.array(z.object({
     text: z.string().min(5),
     linked_to: z.string().min(1),
-    why: z.enum(["TH: story depth","LCD: frequency/workflow/alternative","TMT: past-behavior"]),
-    style: z.literal("past-behavior")
+    why: z.string(), // Accept any string for why field to be more flexible
+    style: z.string() // Accept any string for style field
   })).min(3).max(12)
 });
 
