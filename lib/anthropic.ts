@@ -23,6 +23,7 @@ export function truncateForLLM(s: string, max = 12000): string {
  * - Input truncation to prevent token limit errors
  * - Request ID generation for debugging
  * - Normalized error handling
+ * - Extended thinking enabled by default for deeper reasoning
  *
  * @param model - The Claude model to use
  *   - "claude-sonnet-4-20250514" (Sonnet 4.5) - Fastest and most powerful (recommended)
@@ -33,6 +34,7 @@ export function truncateForLLM(s: string, max = 12000): string {
  * @param options - Optional configuration
  * @param options.maxTokens - Maximum tokens in response (default: varies by call)
  * @param options.temperature - Sampling temperature 0-1 (default: 0.2 for consistency)
+ * @param options.thinking - Enable extended thinking (default: true for better reasoning)
  * @returns The text response from Claude
  * @throws AIError on failure after retries
  */
@@ -43,6 +45,7 @@ export async function callClaude(
   options: {
     maxTokens?: number;
     temperature?: number;
+    thinking?: boolean;
   } = {}
 ): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -67,29 +70,50 @@ export async function callClaude(
   try {
     const response = await withRetry(
       async () => {
-        const message = await anthropic.messages.create({
+        // Build the base request parameters
+        const baseParams = {
           model,
           max_tokens: options.maxTokens ?? 4096,
           temperature: options.temperature ?? 0.2,
           system: truncatedSystem,
           messages: [
             {
-              role: 'user',
+              role: 'user' as const,
               content: truncatedUser,
             },
           ],
           metadata: {
             user_id: requestId,
           },
-        });
+        };
 
-        // Extract text from the first content block
-        const firstBlock = message.content[0];
-        if (firstBlock.type !== 'text') {
-          throw new Error('Unexpected response type from Claude API');
+        // Add thinking parameter if enabled (default: true)
+        const requestParams = options.thinking !== false
+          ? {
+              ...baseParams,
+              thinking: {
+                type: 'enabled' as const,
+                budget_tokens: 10000, // Allow up to 10k tokens for reasoning
+              },
+            }
+          : baseParams;
+
+        const message = await anthropic.messages.create(requestParams);
+
+        // Extract text from content blocks, skipping thinking blocks
+        let textContent = '';
+        for (const block of message.content) {
+          if (block.type === 'text') {
+            textContent += block.text;
+          }
+          // Skip 'thinking' type blocks as they contain internal reasoning
         }
 
-        return firstBlock.text;
+        if (!textContent) {
+          throw new Error('No text content in Claude API response');
+        }
+
+        return textContent;
       },
       { retries: 2, baseMs: 600 }
     );
