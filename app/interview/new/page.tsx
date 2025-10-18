@@ -8,12 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
 
 export default function NewInterviewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const addCustomer = useStore((state) => state.addCustomer);
   const addInterview = useStore((state) => state.addInterview);
@@ -27,33 +27,30 @@ export default function NewInterviewPage() {
     demographics: '',
     productIdea: '',
     transcript: '',
-    interviewDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+    interviewDate: new Date().toISOString().split('T')[0],
   });
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
 
     const trimmedTranscript = formData.transcript.trim();
     const trimmedProductIdea = formData.productIdea.trim();
 
-    if (!trimmedTranscript) {
-      toast.error('Transcript is required before running analysis.');
-      return;
-    }
-
-    if (!trimmedProductIdea) {
-      toast.error('Product idea is required for context.');
+    if (!trimmedTranscript || !trimmedProductIdea) {
+      setError('A transcript and product idea are required.');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Find or create customer profile
-      const customer = getCustomerByName(formData.name);
+      const existingCustomer = getCustomerByName(formData.name);
       let customerId: string;
 
-      if (!customer) {
+      if (existingCustomer) {
+        customerId = existingCustomer.id;
+      } else {
         customerId = `cust-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         addCustomer({
           id: customerId,
@@ -64,29 +61,17 @@ export default function NewInterviewPage() {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-        toast.success(`Created new customer profile: ${formData.name}`);
-      } else {
-        customerId = customer.id;
-        toast.info(`Using existing customer profile: ${formData.name}`);
       }
 
-      // Create interview record
       const interviewId = `int-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       addInterview(customerId, {
         id: interviewId,
         uploadedAt: new Date(formData.interviewDate),
         transcript: trimmedTranscript,
         productIdea: trimmedProductIdea,
-        summary: null,
-        insights: null,
-        alignment: null,
-        coaching: null,
-        betterQuestions: null,
-        followUpEmail: null,
-        analysisStatus: 'pending',
+        analysis: null,
       });
 
-      // Call API to analyze interview
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -99,27 +84,22 @@ export default function NewInterviewPage() {
 
       const result = await response.json();
 
-      if (!result.ok) {
-        const errorMsg = result.error?.code === '429'
-          ? 'AI service is busy — please try again in a moment'
-          : result.error?.message || 'Failed to analyze interview';
-        throw new Error(errorMsg);
+      if (!response.ok || !result.ok) {
+        const message = result?.error?.message || 'Failed to analyze interview.';
+        throw new Error(message);
       }
 
-      // Update the interview with the analysis results from the API
       updateInterview(interviewId, {
-        summary: result.data.summary,
-        insights: result.data.insights,
-        alignment: result.data.alignment,
-        analysisStatus: 'complete',
+        analysis: result.data.analysis,
       });
 
-      toast.success('Interview analyzed successfully!');
       router.push(`/interview/${interviewId}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create and analyze interview';
-      toast.error(message);
-      console.error(error);
+    } catch (submitError) {
+      const message = submitError instanceof Error
+        ? submitError.message
+        : 'Failed to create interview.';
+      setError(message);
+      console.error(submitError);
     } finally {
       setLoading(false);
     }
@@ -145,7 +125,12 @@ export default function NewInterviewPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Customer Information */}
+            {error && (
+              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </p>
+            )}
+
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Customer Information</h3>
 
@@ -155,8 +140,8 @@ export default function NewInterviewPage() {
                   id="name"
                   required
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, name: event.target.value })
                   }
                   placeholder="e.g., Sarah Chen"
                 />
@@ -168,8 +153,8 @@ export default function NewInterviewPage() {
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, email: event.target.value })
                   }
                   placeholder="e.g., sarah@example.com"
                 />
@@ -181,8 +166,8 @@ export default function NewInterviewPage() {
                   id="stakeholderType"
                   required
                   value={formData.stakeholderType}
-                  onChange={(e) =>
-                    setFormData({ ...formData, stakeholderType: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, stakeholderType: event.target.value })
                   }
                   placeholder="e.g., Product Manager, CEO, Engineer"
                 />
@@ -193,11 +178,42 @@ export default function NewInterviewPage() {
                 <Textarea
                   id="demographics"
                   value={formData.demographics}
-                  onChange={(e) =>
-                    setFormData({ ...formData, demographics: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, demographics: event.target.value })
                   }
                   placeholder="e.g., Tech company PM, 5+ years experience, B2B SaaS background"
                   rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Interview Content</h3>
+
+              <div className="space-y-2">
+                <Label htmlFor="productIdea">Product Idea *</Label>
+                <Input
+                  id="productIdea"
+                  required
+                  value={formData.productIdea}
+                  onChange={(event) =>
+                    setFormData({ ...formData, productIdea: event.target.value })
+                  }
+                  placeholder="Summarize the opportunity you discussed"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="transcript">Transcript *</Label>
+                <Textarea
+                  id="transcript"
+                  required
+                  value={formData.transcript}
+                  onChange={(event) =>
+                    setFormData({ ...formData, transcript: event.target.value })
+                  }
+                  placeholder="Paste the full transcript here"
+                  rows={12}
                 />
               </div>
 
@@ -208,56 +224,16 @@ export default function NewInterviewPage() {
                   type="date"
                   required
                   value={formData.interviewDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, interviewDate: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, interviewDate: event.target.value })
                   }
                 />
               </div>
             </div>
 
-            {/* Interview Content */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Interview Content</h3>
-
-              <div className="space-y-2">
-                <Label htmlFor="productIdea">Product Idea / Vision Being Tested *</Label>
-                <Textarea
-                  id="productIdea"
-                  required
-                  value={formData.productIdea}
-                  onChange={(e) =>
-                    setFormData({ ...formData, productIdea: e.target.value })
-                  }
-                  placeholder="e.g., AI-powered customer interview analysis tool"
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transcript">Transcript *</Label>
-                <Textarea
-                  id="transcript"
-                  required
-                  value={formData.transcript}
-                  onChange={(e) =>
-                    setFormData({ ...formData, transcript: e.target.value })
-                  }
-                  placeholder="Paste the interview transcript here..."
-                  rows={10}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <Button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700">
-                {loading ? 'Analyzing...' : 'Create & Analyze Interview'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push('/dashboard')}
-              >
-                Cancel
+            <div className="flex items-center justify-end">
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Analyzing…' : 'Save & Analyze'}
               </Button>
             </div>
           </form>

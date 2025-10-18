@@ -15,25 +15,5 @@ export interface InterviewRecord {
   productIdea: string;
   transcript: string;
   date: string;
-  results: {
-    summary: {
-      bullets: string[];
-      confidence?: number;
-    };
-    insights: {
-      items: Array<{
-        title: string;
-        type: string;
-        quotes: string[];
-        evidence: "low" | "med" | "high";
-      }>;
-      confidence?: number;
-    };
-    alignment: {
-      supports: string[];
-      contradicts: string[];
-      neutral: string[];
-      confidence?: number;
-    };
-  };
+  analysis: string | null;
 }

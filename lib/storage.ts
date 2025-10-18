@@ -64,8 +64,9 @@ export function getLastInterviewDate(p: CustomerProfile): string | null {
 }
 
 export function getKeyInsightSnippet(ir: InterviewRecord): string {
-  const first = ir.results?.insights?.items?.[0];
-  return first?.title || first?.quotes?.[0] || "—";
+  if (!ir.analysis) return "Analysis pending";
+  const firstLine = ir.analysis.split("\n").find((line) => line.trim().length > 0);
+  return firstLine ?? "Analysis pending";
 }
 
 // Interview-specific storage (for backward compatibility with existing /interview/[id] page)

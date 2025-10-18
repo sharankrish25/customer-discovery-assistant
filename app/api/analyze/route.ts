@@ -71,11 +71,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Set status to processing
-    useStore.getState().updateInterview(interviewId, {
-      analysisStatus: "processing",
-    });
-
     try {
       // Call auto-analysis with retry logic built-in
       const { summary, insights, alignment } = await runAutoAnalysis(
@@ -89,31 +84,63 @@ export async function POST(request: NextRequest) {
           : {}
       );
 
+      const summarySection = summary.summary.bullets.length
+        ? [`Summary:`, ...summary.summary.bullets.map((bullet) => `• ${bullet}`)].join("\n")
+        : "Summary: No key bullets available.";
+
+      const insightSection = insights.insights.length
+        ? [
+            "Insights:",
+            ...insights.insights.map((item, index) => {
+              const quote = item.quotes[0]?.text ? `"${item.quotes[0].text}"` : null;
+              const reason = item.why_it_matters ? `Why it matters: ${item.why_it_matters}` : null;
+              return [
+                `${index + 1}. ${item.title}`,
+                quote,
+                reason,
+              ]
+                .filter(Boolean)
+                .join("\n");
+            }),
+          ].join("\n\n")
+        : "Insights: No significant patterns identified.";
+
+      const alignmentSectionParts = [] as string[];
+      if (alignment.alignment.supports.length) {
+        alignmentSectionParts.push(
+          ["Supports:", ...alignment.alignment.supports.map((item) => `• ${item.insight_title}`)].join("\n")
+        );
+      }
+      if (alignment.alignment.contradicts.length) {
+        alignmentSectionParts.push(
+          ["Contradicts:", ...alignment.alignment.contradicts.map((item) => `• ${item.insight_title}`)].join("\n")
+        );
+      }
+      if (alignment.alignment.neutral.length) {
+        alignmentSectionParts.push(
+          ["Neutral:", ...alignment.alignment.neutral.map((item) => `• ${item.insight_title}`)].join("\n")
+        );
+      }
+      const alignmentSection = alignmentSectionParts.length
+        ? ["Alignment Highlights:", alignmentSectionParts.join("\n\n")].join("\n\n")
+        : "Alignment Highlights: No clear alignment signals detected.";
+
+      const analysis = [summarySection, insightSection, alignmentSection].join("\n\n");
+
       // Update interview with results
       useStore.getState().updateInterview(interviewId, {
-        summary,
-        insights,
-        alignment,
-        analysisStatus: "complete",
+        analysis,
       });
 
       return NextResponse.json({
         ok: true,
         data: {
-          summary,
-          insights,
-          alignment,
+          analysis,
         },
       }, { status: 200 });
     } catch (analysisError) {
       // Normalize AI error
       const normalized = normalizeAIError(analysisError);
-
-      // Update interview with error status
-      useStore.getState().updateInterview(interviewId, {
-        analysisStatus: "error",
-        error: normalized.message,
-      });
 
       // Return user-friendly error with appropriate HTTP status
       const statusCode = isRateLimitError(normalized) ? 429 : 502;
