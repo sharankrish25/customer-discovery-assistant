@@ -35,10 +35,10 @@ export async function fetchInterviewForAnalysis(interviewId: string): Promise<In
   const supabase = assertSupabaseClient();
 
   const { data, error } = await supabase
-    .from<InterviewRow>('interviews')
+    .from('interviews')
     .select('id, transcript, product_idea, customer_id')
     .eq('id', interviewId)
-    .maybeSingle();
+    .maybeSingle<InterviewRow>();
 
   if (error) {
     throw new Error(`Unable to fetch interview ${interviewId}: ${error.message}`);

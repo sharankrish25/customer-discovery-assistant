@@ -15,21 +15,20 @@ import type {
 // Constants
 // ============================================================================
 
-// Use Sonnet 4.5 for coaching (quality matters)
-const SONNET_MODEL = 'claude-sonnet-4-20250514';
-// Use Haiku for questions and emails (speed matters)
+// Use Sonnet 3.5 for coaching (quality matters) - reliable with strong JSON support
+const SONNET_MODEL = 'claude-3-5-sonnet-20241022';
+// Use Haiku 3.5 for questions and emails (speed matters)
 const HAIKU_MODEL = 'claude-3-5-haiku-20241022';
 
 // Model-specific configurations
-// Note: temperature must be 1 when extended thinking is enabled
 const SONNET_CONFIG = {
-  maxTokens: 1200,
-  temperature: 1, // Required for extended thinking mode
+  maxTokens: 4096, // Increased for coaching highlights and advice
+  temperature: 0.2, // Lower for consistent, deterministic JSON output
 };
 
 const HAIKU_CONFIG = {
-  maxTokens: 700,
-  temperature: 1, // Required for extended thinking mode
+  maxTokens: 2048, // Increased for better questions (3-12 items) and follow-up emails
+  temperature: 0.2, // Lower for consistent, deterministic JSON output
 };
 
 // ============================================================================

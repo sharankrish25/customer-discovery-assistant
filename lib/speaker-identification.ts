@@ -4,13 +4,12 @@ import { callClaude, truncateForLLM } from './anthropic';
 // Constants
 // ============================================================================
 
-// Using Claude Sonnet 4.5 for speaker identification
-const MODEL = 'claude-sonnet-4-20250514';
+// Using Claude Sonnet 3.5 for speaker identification
+const MODEL = 'claude-3-5-sonnet-20241022';
 
-// Note: temperature must be 1 when extended thinking is enabled
 const AGENT_CONFIG = {
   maxTokens: 4096, // Longer output for annotated transcripts
-  temperature: 1, // Required for extended thinking mode
+  temperature: 0.2, // Lower for consistent speaker identification
 };
 
 // ============================================================================
@@ -32,7 +31,7 @@ export interface AnnotatedTranscript {
 
 /**
  * Identifies and annotates speakers in a raw interview transcript.
- * Uses Claude Sonnet 4.5 to parse when the interviewer vs stakeholder is speaking.
+ * Uses Claude Sonnet 3.5 to parse when the interviewer vs stakeholder is speaking.
  *
  * @param transcript - The raw, unlabeled interview transcript
  * @returns Annotated transcript with speaker labels

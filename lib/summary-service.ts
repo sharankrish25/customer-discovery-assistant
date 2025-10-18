@@ -8,7 +8,7 @@ import { callClaudeMultiMessage } from './anthropic';
  * Anthropic model configuration for the summary worker.
  * Defaults align with production guidance and can be overridden via env.
  */
-export const SUMMARY_MODEL = process.env.ANTHROPIC_SUMMARY_MODEL ?? 'claude-sonnet-4-5-20250929';
+export const SUMMARY_MODEL = process.env.ANTHROPIC_SUMMARY_MODEL ?? 'claude-3-5-sonnet-20241022';
 export const SUMMARY_MAX_MODEL_TOKENS = Number(process.env.ANTHROPIC_SUMMARY_MAX_TOKENS ?? 20_000);
 export const SUMMARY_CHUNK_CHAR_LIMIT = Number(process.env.ANTHROPIC_SUMMARY_CHUNK_LIMIT ?? 18_000);
 

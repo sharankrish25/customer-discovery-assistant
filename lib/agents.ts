@@ -70,15 +70,13 @@ export type AlignmentOutput = z.infer<typeof AlignmentSchema>;
 // Constants
 // ============================================================================
 
-// Using Claude Sonnet 4.5 - the fastest and most powerful Claude model
-const MODEL = 'claude-sonnet-4-5-20250929';
+// Using Claude Sonnet 3.5 - reliable and well-tested model with strong JSON support
+const MODEL = 'claude-3-5-sonnet-20241022';
 
 // Model-specific configurations
-// Note: temperature must be 1 when extended thinking is enabled
 const AGENT_CONFIG = {
-  maxTokens: 1200,
-  temperature: 1, // Required for extended thinking mode
-  thinkingBudget: 900,
+  maxTokens: 4096, // Increased to handle full insights extraction with multiple insights + quotes
+  temperature: 0.2, // Lower temperature for more consistent, deterministic JSON output
 };
 
 // ============================================================================
