@@ -24,7 +24,7 @@ export function truncateForLLM(s: string, max = 12000): string {
  * - Input truncation to prevent token limit errors
  * - Request ID generation for debugging
  * - Normalized error handling
- * - Extended thinking enabled by default for deeper reasoning
+ * - Extended thinking available as opt-in feature (disabled by default)
  *
  * @param model - The Claude model to use
  *   - "claude-sonnet-4-20250514" (Sonnet 4.5) - Fastest and most powerful (recommended)
@@ -35,7 +35,7 @@ export function truncateForLLM(s: string, max = 12000): string {
  * @param options - Optional configuration
  * @param options.maxTokens - Maximum tokens in response (default: varies by call)
  * @param options.temperature - Sampling temperature 0-1 (default: 0.2 for consistency)
- * @param options.thinking - Enable extended thinking (default: true for better reasoning)
+ * @param options.thinking - Enable extended thinking (default: false, opt-in only)
  * @returns The text response from Claude
  * @throws AIError on failure after retries
  */
@@ -100,8 +100,8 @@ export async function callClaude(
           },
         };
 
-        // Add thinking parameter if enabled (default: true)
-        const requestParams = options.thinking !== false
+        // Add thinking parameter if explicitly enabled (default: false)
+        const requestParams = options.thinking === true
           ? {
               ...baseParams,
               thinking: {
@@ -190,8 +190,8 @@ export async function callClaudeMultiMessage(
           },
         };
 
-        // Add thinking parameter if enabled (default: true)
-        const requestParams = options.thinking !== false
+        // Add thinking parameter if explicitly enabled (default: false)
+        const requestParams = options.thinking === true
           ? {
               ...baseParams,
               thinking: {
