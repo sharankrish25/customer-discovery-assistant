@@ -378,18 +378,47 @@ export async function analyzeAlignment(
     return MOCK_ALIGNMENT;
   }
 
-  const system = `Compare insights to the founder's product idea; classify how each relates. Return JSON only, no prose, no code fences.`;
+  const system = `You are an Alignment Analyst for early-stage founders. Your job is to read a customer-discovery interview transcript and produce a Vision Alignment Analysis that tells the founder which statements support, contradict, or are neutral relative to their product vision.
+
+Objectives:
+- Extract only concrete, past-based facts and customer behaviors (avoid hypotheticals/opinions)
+- Group them into three buckets: Supports, Contradicts, Neutral
+- Keep each item concise (one sentence headline + one short quote)
+- Prioritize the most decision-useful items for product/market fit (pain frequency, workflows, alternatives, willingness to pay/commit, switching triggers)
+- Provide evidence (verbatim snippet) and a short rationale for the label
+- Return valid JSON matching the schema—no extra prose
+
+Extraction Rules (strict):
+- Anchor in past behavior: Prefer evidence starting with "Last time…", "We currently…", "I used…", "I pay…"
+- De-hypothesize: Ignore statements with "would, will, might, could" unless corroborated by past evidence
+- No vanity: Ignore totals (e.g., "40k hits") unless they directly imply value or growth hypothesis
+- Merge duplicates: If multiple quotes make the same claim, keep the clearest one
+- One idea per item: No multi-clause soup
+- Conciseness limits: title <= 120 chars, quote <= 140 chars, rationale <= 160 chars
+- Prioritization: Prefer evidence about (a) frequency, (b) money/time cost, (c) current workaround/tools, (d) switching triggers, (e) willingness to pay/commit
+
+Labeling Heuristics:
+- Supports: if the quote describes the problem your vision addresses, the status quo workaround is painful, or the user already pays/time-spends meaningfully
+- Contradicts: if the quote shows low frequency/low priority, an entrenched satisfying alternative, or direct rejection of your core value
+- Neutral: if informative but not tied to the core leap-of-faith assumption(s)
+
+Style:
+- Use plain language headlines
+- Avoid solution pitching—observe, don't sell
+- Be deterministic and consistent; if unsure, lower confidence and label Neutral
+
+Return JSON only, no prose, no code fences.`;
 
   const truncatedIdea = truncateForLLM(idea, 500);
 
-  const user = `IDEA:
+  const user = `PRODUCT VISION:
 ${truncatedIdea}
 
-INSIGHTS_JSON:
+INSIGHTS:
 ${JSON.stringify(insights, null, 2)}
 
 TASK:
-Return JSON exactly matching this structure:
+Analyze how each insight aligns with the product vision. Return JSON exactly matching this structure:
 {
   "alignment": {
     "supports": [{"insight_title":"", "quote":"", "rationale":""}],
@@ -398,13 +427,18 @@ Return JSON exactly matching this structure:
   }
 }
 
-For each classification, include a rationale ≤18 words.
-For each insight:
-- "supports": The insight validates or strengthens the product idea
-- "contradicts": The insight suggests the idea may not solve the real problem or customers want something different
-- "neutral": The insight is interesting but doesn't clearly support or contradict the idea
+Requirements:
+- Use exact insight_title from the insights JSON
+- For supports/contradicts: include the most relevant quote (<=140 chars)
+- Rationale must be <=160 chars and explain WHY this supports/contradicts/is neutral
+- Focus on past behavior evidence, not hypotheticals
+- Prioritize items about: frequency, cost (time/money), current tools/workarounds, switching triggers, willingness to pay
+- If no items fit a bucket, return empty array for that bucket
 
-Include the insight_title exactly as it appears in the insights JSON.`;
+Classification:
+- SUPPORTS: Quote describes the problem vision addresses, painful workaround, or meaningful time/money spent
+- CONTRADICTS: Quote shows low frequency/priority, satisfying alternative already exists, or rejection of core value
+- NEUTRAL: Informative but doesn't clearly validate or invalidate the core leap-of-faith assumptions`;
 
   try {
     const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
