@@ -13,8 +13,8 @@ export function Alignment({ alignment }: AlignmentProps) {
       </CardHeader>
       <CardContent>
         {alignment ? (
-          <div className="grid grid-cols-3 gap-4">
-            <div>
+          <div className="space-y-4">
+            <div className="pb-4 border-b">
               <h4 className="mb-2 text-sm font-semibold text-green-600">Supports</h4>
               {alignment.supports.length > 0 ? (
                 <ul className="list-disc space-y-1 pl-5">
@@ -28,7 +28,7 @@ export function Alignment({ alignment }: AlignmentProps) {
                 <p className="text-sm text-muted-foreground">None</p>
               )}
             </div>
-            <div>
+            <div className="pb-4 border-b">
               <h4 className="mb-2 text-sm font-semibold text-red-600">Contradicts</h4>
               {alignment.contradicts.length > 0 ? (
                 <ul className="list-disc space-y-1 pl-5">

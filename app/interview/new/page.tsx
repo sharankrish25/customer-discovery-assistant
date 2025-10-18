@@ -2,30 +2,32 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useStore } from '@/lib/store';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { AnalyzeResponse } from '@/lib/types';
+import { useStore } from '@/lib/store';
 
 export default function NewInterviewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const getCustomerByName = useStore((state) => state.getCustomerByName);
   const addCustomer = useStore((state) => state.addCustomer);
   const addInterview = useStore((state) => state.addInterview);
-  const updateInterviewAnalysis = useStore((state) => state.updateInterviewAnalysis);
+  const updateInterview = useStore((state) => state.updateInterview);
+  const getCustomerByName = useStore((state) => state.getCustomerByName);
 
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     stakeholderType: '',
     demographics: '',
     productIdea: '',
     transcript: '',
+    interviewDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
   });
 
   const handleSubmit = async (e: FormEvent) => {
@@ -33,15 +35,16 @@ export default function NewInterviewPage() {
     setLoading(true);
 
     try {
-      // Find or create customer
+      // Find or create customer profile
       const customer = getCustomerByName(formData.name);
       let customerId: string;
 
       if (!customer) {
-        const newCustomerId = `cust_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        customerId = addCustomer({
-          id: newCustomerId,
+        customerId = `cust-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        addCustomer({
+          id: customerId,
           name: formData.name,
+          email: formData.email,
           stakeholderType: formData.stakeholderType,
           demographics: formData.demographics,
           createdAt: new Date(),
@@ -53,13 +56,13 @@ export default function NewInterviewPage() {
         toast.info(`Using existing customer profile: ${formData.name}`);
       }
 
-      // Create interview
-      const newInterviewId = `interview_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      const interviewId = addInterview(customerId, {
-        id: newInterviewId,
-        uploadedAt: new Date(),
-        productIdea: formData.productIdea,
+      // Create interview record
+      const interviewId = `int-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      addInterview(customerId, {
+        id: interviewId,
+        uploadedAt: new Date(formData.interviewDate),
         transcript: formData.transcript,
+        productIdea: formData.productIdea,
         summary: null,
         insights: null,
         alignment: null,
@@ -69,36 +72,57 @@ export default function NewInterviewPage() {
         analysisStatus: 'pending',
       });
 
-      // Analyze interview
+      // Call API to analyze interview
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId }),
+        body: JSON.stringify({
+          interviewId,
+          transcript: formData.transcript,
+          productIdea: formData.productIdea,
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to analyze interview');
+      const result = await response.json();
+
+      if (!result.ok) {
+        const errorMsg = result.error?.code === '429'
+          ? 'AI service is busy — please try again in a moment'
+          : result.error?.message || 'Failed to analyze interview';
+        throw new Error(errorMsg);
       }
 
-      // API route already updates the store, just check for success
-      await response.json();
+      // Update the interview with the analysis results from the API
+      updateInterview(interviewId, {
+        summary: result.data.summary,
+        insights: result.data.insights,
+        alignment: result.data.alignment,
+        analysisStatus: 'complete',
+      });
 
       toast.success('Interview analyzed successfully!');
       router.push(`/interview/${interviewId}`);
     } catch (error) {
-      toast.error('Failed to create and analyze interview');
+      const message = error instanceof Error ? error.message : 'Failed to create and analyze interview';
+      toast.error(message);
       console.error(error);
+    } finally {
       setLoading(false);
     }
   };
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">New Interview</h1>
-        <p className="text-muted-foreground">
-          Record a new customer discovery interview
-        </p>
+      <div className="mb-8 flex items-center gap-4">
+        <Button asChild variant="outline" size="sm">
+          <Link href="/dashboard">← Dashboard</Link>
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">New Interview</h1>
+          <p className="text-muted-foreground">
+            Record a new customer discovery interview
+          </p>
+        </div>
       </div>
 
       <Card>
@@ -125,6 +149,19 @@ export default function NewInterviewPage() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  placeholder="e.g., sarah@example.com"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="stakeholderType">Stakeholder Type *</Label>
                 <Input
                   id="stakeholderType"
@@ -147,6 +184,19 @@ export default function NewInterviewPage() {
                   }
                   placeholder="e.g., Tech company PM, 5+ years experience, B2B SaaS background"
                   rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="interviewDate">Interview Date *</Label>
+                <Input
+                  id="interviewDate"
+                  type="date"
+                  required
+                  value={formData.interviewDate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, interviewDate: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -185,7 +235,7 @@ export default function NewInterviewPage() {
             </div>
 
             <div className="flex gap-4">
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700">
                 {loading ? 'Analyzing...' : 'Create & Analyze Interview'}
               </Button>
               <Button

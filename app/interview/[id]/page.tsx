@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useStore } from '@/lib/store';
 import { Summary } from '@/components/Panels/Summary';
 import { Insights } from '@/components/Panels/Insights';
 import { Alignment } from '@/components/Panels/Alignment';
@@ -11,45 +10,59 @@ import { OptionalActions } from '@/components/OptionalActions';
 import { TranscriptCoachView } from '@/components/TranscriptCoachView';
 import { BetterQuestions } from '@/components/BetterQuestions';
 import { FollowupEmail } from '@/components/FollowupEmail';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { SummaryOutput, InsightItem, AlignmentOutput } from '@/lib/types';
-import type {
-  CoachingOutput,
-  BetterQuestionsOutput,
-  FollowUpEmailOutput,
-} from '@/types/ai';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { SummaryOutput as SummaryOutputSimplified, InsightItem, AlignmentOutput as AlignmentOutputSimplified } from '@/lib/types';
+import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput } from '@/types/ai';
+import { useStore } from '@/lib/store';
 
 export default function InterviewDetailPage() {
   const params = useParams();
   const interviewId = params.id as string;
-  const [activeTab, setActiveTab] = useState('transcript');
 
-  const interviewDetailed = useStore((state) => state.getInterviewById(interviewId));
-  const customer = useStore((state) =>
-    interviewDetailed ? state.getCustomerById(interviewDetailed.customerId) : undefined
-  );
+  const [showCoaching, setShowCoaching] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+
+  // Get interview and customer from Zustand store
+  const interviewData = useStore((state) => state.getInterview(interviewId));
   const updateInterview = useStore((state) => state.updateInterview);
+  const customer = useStore((state) =>
+    interviewData ? state.getCustomerById(interviewData.customerId) : null
+  );
 
-  // Convert to simplified types for UI components
-  const interview = interviewDetailed
+  const handleCoachingLoaded = (coaching: CoachingOutput) => {
+    updateInterview(interviewId, { coaching });
+    setShowCoaching(true);
+  };
+
+  const handleQuestionsLoaded = (betterQuestions: BetterQuestionsOutput) => {
+    updateInterview(interviewId, { betterQuestions });
+    setShowQuestions(true);
+  };
+
+  const handleEmailLoaded = (followUpEmail: FollowUpEmailOutput) => {
+    updateInterview(interviewId, { followUpEmail });
+    setShowEmail(true);
+  };
+
+  // Convert Interview to format expected by UI components
+  const interview = interviewData && interviewData.summary && interviewData.insights && interviewData.alignment
     ? {
-        ...interviewDetailed,
-        summary: interviewDetailed.summary
-          ? ({ bullets: interviewDetailed.summary.summary.bullets } as SummaryOutput)
-          : null,
-        insights: interviewDetailed.insights
-          ? (interviewDetailed.insights.insights.map((insight) => ({
-              insight: insight.title,
-              supportingQuote: insight.quotes[0]?.text || '',
-            })) as InsightItem[])
-          : null,
-        alignment: interviewDetailed.alignment
-          ? ({
-              supports: interviewDetailed.alignment.alignment.supports.map((s) => s.quote),
-              contradicts: interviewDetailed.alignment.alignment.contradicts.map((c) => c.quote),
-              neutral: interviewDetailed.alignment.alignment.neutral.map((n) => n.rationale),
-            } as AlignmentOutput)
-          : null,
+        id: interviewData.id,
+        customerId: interviewData.customerId,
+        productIdea: interviewData.productIdea,
+        transcript: interviewData.transcript,
+        uploadedAt: interviewData.uploadedAt,
+        summary: ({ bullets: interviewData.summary.summary.bullets } as SummaryOutputSimplified),
+        insights: (interviewData.insights.insights.map((item) => ({
+          insight: item.title,
+          supportingQuote: item.quotes[0]?.text || '',
+        })) as InsightItem[]),
+        alignment: ({
+          supports: interviewData.alignment.alignment.supports.map(s => s.insight_title),
+          contradicts: interviewData.alignment.alignment.contradicts.map(c => c.insight_title),
+          neutral: interviewData.alignment.alignment.neutral.map(n => n.insight_title),
+        } as AlignmentOutputSimplified),
       }
     : null;
 
@@ -66,46 +79,13 @@ export default function InterviewDetailPage() {
     );
   }
 
-  const handleCoachingLoaded = (data: CoachingOutput) => {
-    updateInterview(interviewId, { coaching: data });
-    setActiveTab('coaching');
-  };
-
-  const handleQuestionsLoaded = (data: BetterQuestionsOutput) => {
-    updateInterview(interviewId, { betterQuestions: data });
-    setActiveTab('questions');
-  };
-
-  const handleEmailLoaded = (data: FollowUpEmailOutput) => {
-    updateInterview(interviewId, { followUpEmail: data });
-    setActiveTab('email');
-  };
-
-  const handleEmailRegenerate = async (desiredCommitment: string) => {
-    // Call the API with the new commitment
-    try {
-      const response = await fetch('/api/followup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId, desiredCommitment }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        updateInterview(interviewId, { followUpEmail: data.followUpEmail });
-      }
-    } catch (error) {
-      console.error('Failed to regenerate email:', error);
-    }
-  };
-
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
         <div className="mb-2 flex items-center gap-2">
           <Link
-            href={`/profile/${interview.customerId}`}
+            href={`/customer/${interview.customerId}`}
             className="text-sm text-muted-foreground hover:underline"
           >
             ← Back to {customer?.name || 'Customer Profile'}
@@ -121,9 +101,9 @@ export default function InterviewDetailPage() {
         </div>
       </div>
 
-      {/* Analysis Panels */}
+      {/* Analysis Panels (3 automatic agents) */}
       <div className="mb-8 space-y-6">
-        <h2 className="text-2xl font-semibold">Auto-Analysis</h2>
+        <h2 className="text-2xl font-semibold">Analysis</h2>
         <div className="grid gap-6 lg:grid-cols-3">
           <Summary summary={interview.summary} />
           <Insights insights={interview.insights} />
@@ -132,56 +112,73 @@ export default function InterviewDetailPage() {
       </div>
 
       {/* Optional Actions */}
-      <div className="mb-8 space-y-4">
-        <h2 className="text-2xl font-semibold">Optional Deep Dives</h2>
+      <div className="mb-8">
+        <h2 className="mb-4 text-2xl font-semibold">Optional Actions</h2>
         <OptionalActions
           interviewId={interviewId}
-          hasCoaching={!!interviewDetailed?.coaching}
-          hasQuestions={!!interviewDetailed?.betterQuestions}
-          hasEmail={!!interviewDetailed?.followUpEmail}
+          transcript={interviewData?.transcript || ''}
+          alignment={interviewData?.alignment || null}
+          insights={interviewData?.insights || null}
+          coaching={interviewData?.coaching || null}
+          customerName={customer?.name || ''}
+          hasCoaching={!!interviewData?.coaching}
+          hasQuestions={!!interviewData?.betterQuestions}
+          hasEmail={!!interviewData?.followUpEmail}
           onCoachingLoaded={handleCoachingLoaded}
           onQuestionsLoaded={handleQuestionsLoaded}
           onEmailLoaded={handleEmailLoaded}
         />
       </div>
 
-      {/* Tabbed Content */}
+      {/* Optional Results */}
+      {showCoaching && interviewData?.coaching && (
+        <div className="mb-8">
+          <TranscriptCoachView transcript={interviewData.transcript} coaching={interviewData.coaching} />
+        </div>
+      )}
+
+      {showQuestions && interviewData?.betterQuestions && (
+        <div className="mb-8">
+          <BetterQuestions data={interviewData.betterQuestions} />
+        </div>
+      )}
+
+      {showEmail && interviewData?.followUpEmail && (
+        <div className="mb-8">
+          <FollowupEmail
+            data={interviewData.followUpEmail}
+            onRegenerate={async (commitment) => {
+              const response = await fetch('/api/followup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  interviewId,
+                  desiredCommitment: commitment,
+                  insights: interviewData.insights,
+                  customerName: customer?.name || '',
+                }),
+              });
+              const result = await response.json();
+              if (result.ok) handleEmailLoaded(result.data.followUpEmail);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Transcript Section */}
       <div className="mb-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="transcript">Transcript</TabsTrigger>
-            <TabsTrigger value="coaching">Coaching</TabsTrigger>
-            <TabsTrigger value="questions">Questions</TabsTrigger>
-            <TabsTrigger value="email">Follow-up</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="transcript" className="mt-6">
-            <div className="rounded-lg border bg-card p-6">
-              <h3 className="mb-4 text-lg font-semibold">Full Transcript</h3>
-              <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-muted-foreground">
+        <Card>
+          <CardHeader>
+            <CardTitle>Transcript</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-96 overflow-y-auto rounded-md bg-muted p-4">
+              <pre className="whitespace-pre-wrap font-sans text-sm">
                 {interview.transcript}
-              </div>
+              </pre>
             </div>
-          </TabsContent>
-
-          <TabsContent value="coaching" className="mt-6">
-            <TranscriptCoachView
-              transcript={interview.transcript}
-              coaching={interviewDetailed?.coaching || null}
-            />
-          </TabsContent>
-
-          <TabsContent value="questions" className="mt-6">
-            <BetterQuestions data={interviewDetailed?.betterQuestions || null} />
-          </TabsContent>
-
-          <TabsContent value="email" className="mt-6">
-            <FollowupEmail
-              data={interviewDetailed?.followUpEmail || null}
-              onRegenerate={handleEmailRegenerate}
-            />
-          </TabsContent>
-        </Tabs>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

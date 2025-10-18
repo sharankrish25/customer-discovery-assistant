@@ -1,26 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { useStore } from "@/lib/store";
 import { runAutoAnalysis } from "@/lib/agents";
+import { normalizeAIError, isRateLimitError } from "@/lib/errors";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { interviewId } = body;
-
-    if (!interviewId) {
+    // Parse and validate request body
+    let body;
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        { error: "interviewId is required" },
+        { ok: false, error: { code: "PARSE_ERR", message: "Invalid JSON in request body" } },
         { status: 400 }
       );
     }
 
-    // Get interview from store
-    const interview = useStore.getState().getInterview(interviewId);
+    const { interviewId, transcript, productIdea } = body;
 
-    if (!interview) {
+    if (!interviewId || typeof interviewId !== 'string') {
       return NextResponse.json(
-        { error: "Interview not found" },
-        { status: 404 }
+        { ok: false, error: { code: "VALIDATION_ERR", message: "interviewId is required and must be a string" } },
+        { status: 400 }
+      );
+    }
+
+    if (!transcript || typeof transcript !== 'string') {
+      return NextResponse.json(
+        { ok: false, error: { code: "VALIDATION_ERR", message: "transcript is required and must be a string" } },
+        { status: 400 }
+      );
+    }
+
+    if (!productIdea || typeof productIdea !== 'string') {
+      return NextResponse.json(
+        { ok: false, error: { code: "VALIDATION_ERR", message: "productIdea is required and must be a string" } },
+        { status: 400 }
       );
     }
 
@@ -30,10 +45,10 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      // Call auto-analysis (uses real Claude API or mock if no API key)
+      // Call auto-analysis with retry logic built-in
       const { summary, insights, alignment } = await runAutoAnalysis(
-        interview.transcript,
-        interview.productIdea
+        transcript,
+        productIdea
       );
 
       // Update interview with results
@@ -45,29 +60,48 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({
-        success: true,
-        summary,
-        insights,
-        alignment,
-      });
+        ok: true,
+        data: {
+          summary,
+          insights,
+          alignment,
+        },
+      }, { status: 200 });
     } catch (analysisError) {
-      // Handle analysis error
+      // Normalize AI error
+      const normalized = normalizeAIError(analysisError);
+
+      // Update interview with error status
       useStore.getState().updateInterview(interviewId, {
         analysisStatus: "error",
-        error:
-          analysisError instanceof Error
-            ? analysisError.message
-            : "Analysis failed",
+        error: normalized.message,
       });
 
-      throw analysisError;
+      // Return user-friendly error with appropriate HTTP status
+      const statusCode = isRateLimitError(normalized) ? 429 : 502;
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: normalized.code || "AI_ERR",
+            message: normalized.message,
+          },
+        },
+        { status: statusCode }
+      );
     }
   } catch (error) {
-    console.error("Analysis error:", error);
+    console.error("Analysis route error:", error);
+    const normalized = normalizeAIError(error);
+
     return NextResponse.json(
       {
-        error: "Failed to analyze interview",
-        details: error instanceof Error ? error.message : "Unknown error",
+        ok: false,
+        error: {
+          code: normalized.code || "SERVER_ERR",
+          message: "Failed to analyze interview",
+        },
       },
       { status: 500 }
     );

@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { callClaude } from './anthropic';
+import { callClaude, truncateForLLM } from './anthropic';
 import { parseJsonSafely } from './parseJson';
+import { clampConfidence } from './confidence';
 
 // ============================================================================
 // Zod Schemas (matching UI types)
@@ -67,6 +68,12 @@ export type AlignmentOutput = z.infer<typeof AlignmentSchema>;
 
 // Using Claude Sonnet 4.5 - the fastest and most powerful Claude model
 const MODEL = 'claude-sonnet-4-20250514';
+
+// Model-specific configurations for speed and determinism
+const AGENT_CONFIG = {
+  maxTokens: 1200,
+  temperature: 0.2,
+};
 
 // ============================================================================
 // Mock Data (for when API key is missing)
@@ -173,13 +180,16 @@ export async function analyzeSummary(
     return MOCK_SUMMARY;
   }
 
-  const system = `You are a customer discovery analyst. Produce concise, factual learnings from interview transcripts. Avoid opinions.`;
+  const system = `You are a customer discovery analyst. Produce concise, factual learnings from interview transcripts. Avoid opinions. Return JSON only, no prose, no code fences.`;
+
+  const truncatedTranscript = truncateForLLM(transcript);
+  const truncatedIdea = truncateForLLM(idea, 500);
 
   const user = `IDEA:
-${idea}
+${truncatedIdea}
 
 TRANSCRIPT:
-${transcript}
+${truncatedTranscript}
 
 TASK:
 Return JSON exactly matching this structure:
@@ -188,9 +198,17 @@ Return JSON exactly matching this structure:
 Use only transcript evidence. Each bullet should be a complete, factual statement about what was learned.`;
 
   try {
-    const response = await callClaude(MODEL, system, user);
+    const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
     const parsed = parseJsonSafely(response);
-    return SummarySchema.parse(parsed);
+    const result = SummarySchema.parse(parsed);
+
+    // Clamp confidence based on transcript length
+    result.summary.confidence = clampConfidence(
+      result.summary.confidence ?? 0.8,
+      transcript
+    );
+
+    return result;
   } catch (error) {
     throw new Error(
       `Failed to analyze summary: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -211,10 +229,12 @@ export async function extractInsights(transcript: string): Promise<InsightsOutpu
     return MOCK_INSIGHTS;
   }
 
-  const system = `Extract only evidence-backed pains/needs/motivations with verbatim quotes.`;
+  const system = `Extract only evidence-backed pains/needs/motivations with verbatim quotes. Return JSON only, no prose, no code fences.`;
+
+  const truncatedTranscript = truncateForLLM(transcript);
 
   const user = `TRANSCRIPT:
-${transcript}
+${truncatedTranscript}
 
 TASK:
 Return JSON exactly matching this structure:
@@ -235,9 +255,14 @@ Each insight MUST include ≥1 verbatim quote from the transcript.
 - evidence_level: "high" = multiple quotes + specific examples, "med" = one clear quote, "low" = implied or weak evidence`;
 
   try {
-    const response = await callClaude(MODEL, system, user);
+    const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
     const parsed = parseJsonSafely(response);
-    return InsightsSchema.parse(parsed);
+    const result = InsightsSchema.parse(parsed);
+
+    // Clamp confidence based on transcript length
+    result.confidence = clampConfidence(result.confidence ?? 0.8, transcript);
+
+    return result;
   } catch (error) {
     throw new Error(
       `Failed to extract insights: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -262,10 +287,12 @@ export async function analyzeAlignment(
     return MOCK_ALIGNMENT;
   }
 
-  const system = `Compare insights to the founder's product idea; classify how each relates.`;
+  const system = `Compare insights to the founder's product idea; classify how each relates. Return JSON only, no prose, no code fences.`;
+
+  const truncatedIdea = truncateForLLM(idea, 500);
 
   const user = `IDEA:
-${idea}
+${truncatedIdea}
 
 INSIGHTS_JSON:
 ${JSON.stringify(insights, null, 2)}
@@ -280,6 +307,7 @@ Return JSON exactly matching this structure:
   }
 }
 
+For each classification, include a rationale ≤18 words.
 For each insight:
 - "supports": The insight validates or strengthens the product idea
 - "contradicts": The insight suggests the idea may not solve the real problem or customers want something different
@@ -288,7 +316,7 @@ For each insight:
 Include the insight_title exactly as it appears in the insights JSON.`;
 
   try {
-    const response = await callClaude(MODEL, system, user);
+    const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
     const parsed = parseJsonSafely(response);
     return AlignmentSchema.parse(parsed);
   } catch (error) {

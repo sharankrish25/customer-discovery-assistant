@@ -4,6 +4,9 @@ import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput } from 
 
 interface StoreState {
   customers: CustomerProfile[];
+  // Busy state tracking for concurrent request prevention
+  busyMap: Record<string, boolean>;
+
   addCustomer: (customer: Omit<CustomerProfile, "interviews">) => string;
   addInterview: (customerId: string, interview: Omit<Interview, "customerId">) => string;
   updateInterview: (interviewId: string, patch: Partial<Interview>) => void;
@@ -16,11 +19,21 @@ interface StoreState {
   getInterviewsByCustomerId: (customerId: string) => Interview[];
   getCustomerById: (customerId: string) => CustomerProfile | undefined;
   getCustomerByName: (name: string) => CustomerProfile | undefined;
+
+  // Busy state management
+  setBusy: (id: string, busy: boolean) => void;
+  isBusy: (id: string) => boolean;
+
+  // Delete operations
+  deleteInterview: (interviewId: string) => void;
+  deleteCustomer: (customerId: string) => void;
+
   seedMock: () => void;
 }
 
 export const useStore = create<StoreState>((set, get) => ({
   customers: [],
+  busyMap: {},
 
   addCustomer: (customer) => {
     const customerId = customer.id;
@@ -122,6 +135,35 @@ export const useStore = create<StoreState>((set, get) => ({
 
   updateInterviewFollowup: (interviewId, followup) => {
     get().updateInterview(interviewId, { followUpEmail: followup });
+  },
+
+  setBusy: (id, busy) => {
+    set((state) => ({
+      busyMap: {
+        ...state.busyMap,
+        [id]: busy,
+      },
+    }));
+  },
+
+  isBusy: (id) => {
+    return get().busyMap[id] || false;
+  },
+
+  deleteInterview: (interviewId) => {
+    set((state) => ({
+      customers: state.customers.map((c) => ({
+        ...c,
+        interviews: c.interviews.filter((i) => i.id !== interviewId),
+        updatedAt: new Date(),
+      })),
+    }));
+  },
+
+  deleteCustomer: (customerId) => {
+    set((state) => ({
+      customers: state.customers.filter((c) => c.id !== customerId),
+    }));
   },
 
   seedMock: () => {

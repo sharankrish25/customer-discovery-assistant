@@ -2,16 +2,18 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import type {
-  CoachingOutput,
-  BetterQuestionsOutput,
-  FollowUpEmailOutput,
-} from '@/types/ai';
+import { toast } from 'sonner';
+import { useStore } from '@/lib/store';
+import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput, AlignmentOutput, InsightsOutput } from '@/types/ai';
 
 interface OptionalActionsProps {
   interviewId: string;
+  transcript: string;
+  alignment: AlignmentOutput | null;
+  insights: InsightsOutput | null;
+  coaching: CoachingOutput | null;
+  customerName: string;
   hasCoaching: boolean;
   hasQuestions: boolean;
   hasEmail: boolean;
@@ -22,6 +24,11 @@ interface OptionalActionsProps {
 
 export function OptionalActions({
   interviewId,
+  transcript,
+  alignment,
+  insights,
+  coaching,
+  customerName,
   hasCoaching,
   hasQuestions,
   hasEmail,
@@ -31,148 +38,192 @@ export function OptionalActions({
 }: OptionalActionsProps) {
   const [loadingCoach, setLoadingCoach] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [loadingFollowup, setLoadingFollowup] = useState(false);
 
-  const handleAnalyzeQuality = async () => {
+  const setBusy = useStore((state) => state.setBusy);
+  const isBusy = useStore((state) => state.isBusy);
+
+  // Prevent concurrent requests
+  const anyBusy = loadingCoach || loadingQuestions || loadingFollowup;
+
+  const handleCoach = async () => {
+    const busyKey = `${interviewId}-coach`;
+
+    // Prevent duplicate concurrent calls
+    if (isBusy(busyKey)) {
+      toast.error('Already analyzing quality — please wait');
+      return;
+    }
+
     setLoadingCoach(true);
+    setBusy(busyKey, true);
+
     try {
       const response = await fetch('/api/coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId }),
+        body: JSON.stringify({ interviewId, transcript }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to analyze quality');
+      const result = await response.json();
+
+      if (!result.ok) {
+        // Handle {ok: false} envelope
+        const errorMsg = result.error?.code === '429'
+          ? 'AI service is busy — please try again in a moment'
+          : result.error?.message || 'Failed to generate coaching';
+        throw new Error(errorMsg);
       }
 
-      const data = await response.json();
-      onCoachingLoaded(data.coaching);
-      toast.success('Coaching analysis generated!');
+      onCoachingLoaded(result.data.coaching);
+      toast.success('Coaching generated');
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to analyze interview quality'
-      );
+      const message = error instanceof Error ? error.message : 'Failed to generate coaching analysis';
+      toast.error(message);
       console.error(error);
     } finally {
       setLoadingCoach(false);
+      setBusy(busyKey, false);
     }
   };
 
-  const handleGenerateQuestions = async () => {
+  const handleNextQuestions = async () => {
+    const busyKey = `${interviewId}-questions`;
+
+    if (isBusy(busyKey)) {
+      toast.error('Already generating questions — please wait');
+      return;
+    }
+
     setLoadingQuestions(true);
+    setBusy(busyKey, true);
+
     try {
       const response = await fetch('/api/next-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId }),
+        body: JSON.stringify({ interviewId, alignment, coaching }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate questions');
+      const result = await response.json();
+
+      if (!result.ok) {
+        const errorMsg = result.error?.code === '429'
+          ? 'AI service is busy — please try again in a moment'
+          : result.error?.message || 'Failed to generate questions';
+        throw new Error(errorMsg);
       }
 
-      const data = await response.json();
-      onQuestionsLoaded(data.betterQuestions);
-      toast.success('Better questions generated!');
+      onQuestionsLoaded(result.data.betterQuestions);
+      toast.success('Questions ready');
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to generate questions'
-      );
+      const message = error instanceof Error ? error.message : 'Failed to generate better questions';
+      toast.error(message);
       console.error(error);
     } finally {
       setLoadingQuestions(false);
+      setBusy(busyKey, false);
     }
   };
 
-  const handleGenerateEmail = async (
-    desiredCommitment?: string,
-    chosenInsightTitle?: string
-  ) => {
-    setLoadingEmail(true);
+  const handleFollowup = async () => {
+    const busyKey = `${interviewId}-followup`;
+
+    if (isBusy(busyKey)) {
+      toast.error('Already drafting email — please wait');
+      return;
+    }
+
+    setLoadingFollowup(true);
+    setBusy(busyKey, true);
+
     try {
       const response = await fetch('/api/followup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          interviewId,
-          desiredCommitment,
-          chosenInsightTitle,
-        }),
+        body: JSON.stringify({ interviewId, insights, customerName }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate email');
+      const result = await response.json();
+
+      if (!result.ok) {
+        const errorMsg = result.error?.code === '429'
+          ? 'AI service is busy — please try again in a moment'
+          : result.error?.message || 'Failed to generate email';
+        throw new Error(errorMsg);
       }
 
-      const data = await response.json();
-      onEmailLoaded(data.followUpEmail);
-      toast.success('Follow-up email generated!');
+      onEmailLoaded(result.data.followUpEmail);
+      toast.success('Follow-up email drafted');
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to generate follow-up email'
-      );
+      const message = error instanceof Error ? error.message : 'Failed to generate follow-up email';
+      toast.error(message);
       console.error(error);
     } finally {
-      setLoadingEmail(false);
+      setLoadingFollowup(false);
+      setBusy(busyKey, false);
     }
   };
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <Button
-        onClick={handleAnalyzeQuality}
-        disabled={loadingCoach}
-        variant="outline"
-        className="flex-1 sm:flex-none"
+        onClick={handleCoach}
+        disabled={anyBusy}
+        variant={hasCoaching ? "default" : "outline"}
+        className="h-24 flex flex-col items-center justify-center gap-2 transition hover:shadow-md"
+        aria-label="Coaching"
+        aria-busy={loadingCoach}
       >
         {loadingCoach ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Analyzing...
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Analyzing...</span>
           </>
         ) : (
           <>
-            {hasCoaching ? 'Re-analyze' : 'Analyze'} Interview Quality
+            <span className="text-lg font-semibold">Coaching</span>
+            <span className="text-xs text-muted-foreground">{hasCoaching ? 'View' : 'Generate'}</span>
           </>
         )}
       </Button>
-
       <Button
-        onClick={handleGenerateQuestions}
-        disabled={loadingQuestions}
-        variant="outline"
-        className="flex-1 sm:flex-none"
+        onClick={handleNextQuestions}
+        disabled={anyBusy}
+        variant={hasQuestions ? "default" : "outline"}
+        className="h-24 flex flex-col items-center justify-center gap-2 transition hover:shadow-md"
+        aria-label="Questions"
+        aria-busy={loadingQuestions}
       >
         {loadingQuestions ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Generating...
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Generating...</span>
           </>
         ) : (
           <>
-            {hasQuestions ? 'Regenerate' : 'Generate'} Better Questions
+            <span className="text-lg font-semibold">Questions</span>
+            <span className="text-xs text-muted-foreground">{hasQuestions ? 'View' : 'Generate'}</span>
           </>
         )}
       </Button>
-
       <Button
-        onClick={() => handleGenerateEmail()}
-        disabled={loadingEmail}
-        variant="outline"
-        className="flex-1 sm:flex-none"
+        onClick={handleFollowup}
+        disabled={anyBusy}
+        variant={hasEmail ? "default" : "outline"}
+        className="h-24 flex flex-col items-center justify-center gap-2 transition hover:shadow-md"
+        aria-label="Follow-up Email"
+        aria-busy={loadingFollowup}
       >
-        {loadingEmail ? (
+        {loadingFollowup ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Generating...
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Drafting...</span>
           </>
         ) : (
           <>
-            {hasEmail ? 'Regenerate' : 'Generate'} Follow-up Email
+            <span className="text-lg font-semibold">Follow-up</span>
+            <span className="text-xs text-muted-foreground">{hasEmail ? 'View' : 'Generate'}</span>
           </>
         )}
       </Button>
