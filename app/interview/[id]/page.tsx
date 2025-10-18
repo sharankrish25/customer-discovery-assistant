@@ -1,7 +1,7 @@
 'use client';
 
-import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useStore } from '@/lib/store';
 
@@ -27,27 +27,29 @@ export default function InterviewDetailPage() {
     );
   }
 
+  const formattedDate = new Date(interview.uploadedAt).toLocaleString();
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       <div>
         <Link
-          href={`/customer/${interview.customerId}`}
+          href={customer ? `/customer/${customer.id}` : '/dashboard'}
           className="text-sm text-muted-foreground hover:underline"
         >
-          ← Back to {customer?.name || 'Customer Profile'}
+          ← Back to {customer ? `${customer.name}'s profile` : 'Dashboard'}
         </Link>
-        <h1 className="mt-3 text-3xl font-bold">Interview Detail</h1>
-        <p className="text-sm text-muted-foreground">
-          Uploaded: {new Date(interview.uploadedAt).toLocaleString()}
-        </p>
+        <h1 className="mt-4 text-3xl font-bold">Interview Overview</h1>
+        <p className="text-sm text-muted-foreground">Uploaded {formattedDate}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Vision being tested</CardTitle>
+          <CardTitle>Product Idea</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>{interview.productIdea}</p>
+          <p className="leading-relaxed text-sm sm:text-base">
+            {interview.productIdea}
+          </p>
         </CardContent>
       </Card>
 
@@ -56,11 +58,9 @@ export default function InterviewDetailPage() {
           <CardTitle>Transcript</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="max-h-96 overflow-y-auto rounded-md bg-muted p-4">
-            <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-              {interview.transcript}
-            </pre>
-          </div>
+          <pre className="whitespace-pre-wrap rounded-md bg-muted p-4 text-sm leading-relaxed">
+            {interview.transcript}
+          </pre>
         </CardContent>
       </Card>
 
@@ -70,10 +70,12 @@ export default function InterviewDetailPage() {
         </CardHeader>
         <CardContent>
           {interview.analysis ? (
-            <p className="text-sm leading-relaxed">{interview.analysis.analysis}</p>
+            <pre className="whitespace-pre-wrap text-sm leading-relaxed">
+              {interview.analysis}
+            </pre>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No analysis has been generated yet.
+              No analysis available yet.
             </p>
           )}
         </CardContent>

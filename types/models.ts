@@ -1,12 +1,10 @@
-import type { AnalysisResult } from "./ai";
-
 export interface Interview {
   id: string;
   customerId: string;
   uploadedAt: Date;
   transcript: string;
   productIdea: string;
-  analysis: AnalysisResult | null;
+  analysis: string | null;
 }
 
 export interface CustomerProfile {

@@ -9,26 +9,26 @@ interface CustomerCardProps {
   profile: CustomerProfile;
 }
 
-function getLastInterviewDate(profile: CustomerProfile): string {
-  if (profile.interviews.length === 0) return '—';
-  const latest = Math.max(
-    ...profile.interviews.map((interview) => new Date(interview.uploadedAt).getTime())
-  );
-  return new Date(latest).toLocaleDateString();
+function getLastInterviewDate(profile: CustomerProfile): Date | null {
+  if (!profile.interviews || profile.interviews.length === 0) return null;
+  const dates = profile.interviews.map((i) => new Date(i.uploadedAt));
+  return new Date(Math.max(...dates.map((d) => d.getTime())));
 }
 
-function getAnalysisSnippet(profile: CustomerProfile): string {
-  const interview = profile.interviews[0];
-  if (!interview?.analysis) {
-    return 'No analysis available yet.';
+function getAnalysisPreview(profile: CustomerProfile): string {
+  const latestInterview = profile.interviews
+    .slice()
+    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
+  if (!latestInterview || !latestInterview.analysis) {
+    return 'Analysis pending';
   }
-  const text = interview.analysis.analysis;
-  return text.length > 120 ? `${text.slice(0, 117)}…` : text;
+  const firstLine = latestInterview.analysis.split('\n').find((line) => line.trim().length > 0);
+  return firstLine ?? 'Analysis pending';
 }
 
 export function CustomerCard({ profile }: CustomerCardProps) {
   const lastDate = getLastInterviewDate(profile);
-  const snippet = getAnalysisSnippet(profile);
+  const analysisPreview = getAnalysisPreview(profile);
 
   return (
     <Link href={`/customer/${profile.id}`} className="block group">
@@ -45,11 +45,12 @@ export function CustomerCard({ profile }: CustomerCardProps) {
         </CardHeader>
         <CardContent className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            Last interview: {lastDate}
+            Last interview:{' '}
+            {lastDate ? lastDate.toLocaleDateString() : '—'}
           </p>
           <p className="text-sm line-clamp-3">
-            <span className="font-medium">Analysis snapshot: </span>
-            {snippet}
+            <span className="font-medium">Analysis: </span>
+            {analysisPreview}
           </p>
         </CardContent>
       </Card>

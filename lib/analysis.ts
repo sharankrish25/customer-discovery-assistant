@@ -1,14 +1,11 @@
-import type { AnalysisResult } from "@/types/ai";
-
-const SENTENCE_SPLIT_REGEX = /(?<=[.!?])\s+/u;
-const MAX_SENTENCES = 3;
-const MAX_FALLBACK_LENGTH = 320;
-
-export function generateAnalysis(transcript: string, productIdea: string): AnalysisResult {
+export function generateAnalysis(transcript: string, productIdea: string): string {
   const normalizedTranscript = transcript.replace(/\s+/g, " ").trim();
   if (!normalizedTranscript) {
-    return { analysis: "No transcript provided. Please add interview notes to generate an analysis." };
+    return "No transcript provided. Please add interview notes to generate an analysis.";
   }
+
+  const SENTENCE_SPLIT_REGEX = /(?<=[.!?])\s+/u;
+  const MAX_SENTENCES = 3;
 
   const sentences = normalizedTranscript
     .split(SENTENCE_SPLIT_REGEX)
@@ -18,14 +15,12 @@ export function generateAnalysis(transcript: string, productIdea: string): Analy
 
   const summaryText = sentences.length > 0
     ? sentences.join(" ")
-    : normalizedTranscript.slice(0, MAX_FALLBACK_LENGTH);
+    : normalizedTranscript.slice(0, 320);
 
   const ideaContext = productIdea.trim();
   const prefix = ideaContext
     ? `Interview analysis for "${ideaContext}":`
     : "Interview analysis:";
 
-  return {
-    analysis: `${prefix} ${summaryText}`.trim(),
-  };
+  return `${prefix} ${summaryText}`.trim();
 }

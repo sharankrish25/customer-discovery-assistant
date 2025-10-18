@@ -8,13 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
 import { useStore } from '@/lib/store';
 import { generateAnalysis } from '@/lib/analysis';
 
 export default function NewInterviewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const addCustomer = useStore((state) => state.addCustomer);
   const addInterview = useStore((state) => state.addInterview);
@@ -30,29 +30,27 @@ export default function NewInterviewPage() {
     interviewDate: new Date().toISOString().split('T')[0],
   });
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
 
     const trimmedTranscript = formData.transcript.trim();
     const trimmedProductIdea = formData.productIdea.trim();
 
-    if (!trimmedTranscript) {
-      toast.error('Transcript is required before generating an analysis.');
-      return;
-    }
-
-    if (!trimmedProductIdea) {
-      toast.error('Product idea is required for context.');
+    if (!trimmedTranscript || !trimmedProductIdea) {
+      setError('A transcript and product idea are required.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const customer = getCustomerByName(formData.name);
+      const existingCustomer = getCustomerByName(formData.name);
       let customerId: string;
 
-      if (!customer) {
+      if (existingCustomer) {
+        customerId = existingCustomer.id;
+      } else {
         customerId = `cust-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         addCustomer({
           id: customerId,
@@ -63,10 +61,6 @@ export default function NewInterviewPage() {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-        toast.success(`Created new customer profile: ${formData.name}`);
-      } else {
-        customerId = customer.id;
-        toast.info(`Using existing customer profile: ${formData.name}`);
       }
 
       const interviewId = `int-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -80,12 +74,13 @@ export default function NewInterviewPage() {
         analysis,
       });
 
-      toast.success('Interview analyzed successfully!');
       router.push(`/interview/${interviewId}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create interview';
-      toast.error(message);
-      console.error(error);
+    } catch (submitError) {
+      const message = submitError instanceof Error
+        ? submitError.message
+        : 'Failed to create interview.';
+      setError(message);
+      console.error(submitError);
     } finally {
       setLoading(false);
     }
@@ -111,6 +106,12 @@ export default function NewInterviewPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </p>
+            )}
+
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Customer Information</h3>
 
@@ -120,8 +121,8 @@ export default function NewInterviewPage() {
                   id="name"
                   required
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, name: event.target.value })
                   }
                   placeholder="e.g., Sarah Chen"
                 />
@@ -133,8 +134,8 @@ export default function NewInterviewPage() {
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, email: event.target.value })
                   }
                   placeholder="e.g., sarah@example.com"
                 />
@@ -146,8 +147,8 @@ export default function NewInterviewPage() {
                   id="stakeholderType"
                   required
                   value={formData.stakeholderType}
-                  onChange={(e) =>
-                    setFormData({ ...formData, stakeholderType: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, stakeholderType: event.target.value })
                   }
                   placeholder="e.g., Product Manager, CEO, Engineer"
                 />
@@ -158,8 +159,8 @@ export default function NewInterviewPage() {
                 <Textarea
                   id="demographics"
                   value={formData.demographics}
-                  onChange={(e) =>
-                    setFormData({ ...formData, demographics: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, demographics: event.target.value })
                   }
                   placeholder="e.g., Tech company PM, 5+ years experience, B2B SaaS background"
                   rows={3}
@@ -168,7 +169,7 @@ export default function NewInterviewPage() {
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Interview</h3>
+              <h3 className="text-lg font-semibold">Interview Content</h3>
 
               <div className="space-y-2">
                 <Label htmlFor="productIdea">Product Idea *</Label>
@@ -176,10 +177,24 @@ export default function NewInterviewPage() {
                   id="productIdea"
                   required
                   value={formData.productIdea}
-                  onChange={(e) =>
-                    setFormData({ ...formData, productIdea: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, productIdea: event.target.value })
                   }
-                  placeholder="e.g., AI-powered customer interview analysis tool"
+                  placeholder="Summarize the opportunity you discussed"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="transcript">Transcript *</Label>
+                <Textarea
+                  id="transcript"
+                  required
+                  value={formData.transcript}
+                  onChange={(event) =>
+                    setFormData({ ...formData, transcript: event.target.value })
+                  }
+                  placeholder="Paste the full transcript here"
+                  rows={12}
                 />
               </div>
 
@@ -190,33 +205,16 @@ export default function NewInterviewPage() {
                   type="date"
                   required
                   value={formData.interviewDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, interviewDate: e.target.value })
+                  onChange={(event) =>
+                    setFormData({ ...formData, interviewDate: event.target.value })
                   }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transcript">Transcript *</Label>
-                <Textarea
-                  id="transcript"
-                  required
-                  value={formData.transcript}
-                  onChange={(e) =>
-                    setFormData({ ...formData, transcript: e.target.value })
-                  }
-                  placeholder="Paste the full transcript here..."
-                  rows={12}
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => router.back()}>
-                Cancel
-              </Button>
+            <div className="flex items-center justify-end">
               <Button type="submit" disabled={loading}>
-                {loading ? 'Generating Analysis…' : 'Create Interview'}
+                {loading ? 'Creating Interview…' : 'Create Interview'}
               </Button>
             </div>
           </form>

@@ -1,20 +1,25 @@
 import { create } from "zustand";
 import type { CustomerProfile, Interview } from "@/types/models";
 
+type NewCustomer = Omit<CustomerProfile, "interviews">;
+type NewInterview = Omit<Interview, "customerId">;
+type InterviewPatch = Partial<Omit<Interview, "id" | "customerId">>;
+
 interface StoreState {
   customers: CustomerProfile[];
-
-  addCustomer: (customer: Omit<CustomerProfile, "interviews">) => string;
-  addInterview: (customerId: string, interview: Omit<Interview, "customerId">) => string;
-  updateInterview: (interviewId: string, patch: Partial<Interview>) => void;
+  addCustomer: (customer: NewCustomer) => string;
+  addInterview: (customerId: string, interview: NewInterview) => string;
+  updateInterview: (interviewId: string, patch: InterviewPatch) => void;
   getInterview: (interviewId: string) => Interview | undefined;
-  getInterviewById: (interviewId: string) => Interview | undefined;
   getInterviewsByCustomerId: (customerId: string) => Interview[];
   getCustomerById: (customerId: string) => CustomerProfile | undefined;
   getCustomerByName: (name: string) => CustomerProfile | undefined;
-
   deleteInterview: (interviewId: string) => void;
   deleteCustomer: (customerId: string) => void;
+}
+
+function updateCustomerTimestamp(customer: CustomerProfile): CustomerProfile {
+  return { ...customer, updatedAt: new Date() };
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -37,83 +42,85 @@ export const useStore = create<StoreState>((set, get) => ({
   addInterview: (customerId, interview) => {
     const interviewId = interview.id;
     set((state) => ({
-      customers: state.customers.map((customer) =>
-        customer.id === customerId
-          ? {
-              ...customer,
-              updatedAt: new Date(),
-              interviews: [
-                ...customer.interviews,
-                {
-                  ...interview,
-                  customerId,
-                },
-              ],
-            }
-          : customer
-      ),
+      customers: state.customers.map((customer) => {
+        if (customer.id !== customerId) {
+          return customer;
+        }
+
+        return {
+          ...updateCustomerTimestamp(customer),
+          interviews: [
+            ...customer.interviews,
+            {
+              ...interview,
+              customerId,
+            },
+          ],
+        };
+      }),
     }));
+
     return interviewId;
   },
 
   updateInterview: (interviewId, patch) => {
     set((state) => ({
-      customers: state.customers.map((customer) => ({
-        ...customer,
-        interviews: customer.interviews.map((interview) =>
-          interview.id === interviewId
-            ? {
-                ...interview,
-                ...patch,
-              }
-            : interview
-        ),
-      })),
+      customers: state.customers.map((customer) => {
+        const hasInterview = customer.interviews.some((i) => i.id === interviewId);
+        if (!hasInterview) {
+          return customer;
+        }
+
+        return {
+          ...updateCustomerTimestamp(customer),
+          interviews: customer.interviews.map((interview) =>
+            interview.id === interviewId
+              ? {
+                  ...interview,
+                  ...patch,
+                }
+              : interview
+          ),
+        };
+      }),
     }));
   },
 
   getInterview: (interviewId) => {
-    const state = get();
-    for (const customer of state.customers) {
-      const interview = customer.interviews.find((item) => item.id === interviewId);
-      if (interview) return interview;
-    }
-    return undefined;
-  },
-
-  getInterviewById: (interviewId) => {
-    const state = get();
-    for (const customer of state.customers) {
-      const interview = customer.interviews.find((item) => item.id === interviewId);
-      if (interview) return interview;
+    for (const customer of get().customers) {
+      const interview = customer.interviews.find((i) => i.id === interviewId);
+      if (interview) {
+        return interview;
+      }
     }
     return undefined;
   },
 
   getInterviewsByCustomerId: (customerId) => {
-    const state = get();
-    const customer = state.customers.find((item) => item.id === customerId);
+    const customer = get().customers.find((c) => c.id === customerId);
     return customer ? customer.interviews : [];
   },
 
-  getCustomerById: (customerId) => {
-    const state = get();
-    return state.customers.find((customer) => customer.id === customerId);
-  },
+  getCustomerById: (customerId) => get().customers.find((c) => c.id === customerId),
 
-  getCustomerByName: (name) => {
-    const state = get();
-    return state.customers.find((customer) => customer.name === name);
-  },
+  getCustomerByName: (name) => get().customers.find((c) => c.name === name),
 
   deleteInterview: (interviewId) => {
-    set((state) => ({
-      customers: state.customers.map((customer) => ({
-        ...customer,
-        interviews: customer.interviews.filter((interview) => interview.id !== interviewId),
-        updatedAt: new Date(),
-      })),
-    }));
+    set((state) => {
+      const customers = state.customers.map((customer) => {
+        const filtered = customer.interviews.filter((interview) => interview.id !== interviewId);
+        if (filtered.length === customer.interviews.length) {
+          return customer;
+        }
+        return {
+          ...customer,
+          interviews: filtered,
+          updatedAt: new Date(),
+        };
+      });
+
+      return { customers };
+    });
   },
 
   deleteCustomer: (customerId) => {

@@ -109,7 +109,7 @@ export default function CustomerProfilePage() {
                 <CardContent>
                   {interview.analysis ? (
                     <p className="text-sm text-muted-foreground line-clamp-3">
-                      {interview.analysis.analysis}
+                      {interview.analysis}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
