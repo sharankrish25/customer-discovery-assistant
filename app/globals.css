@@ -1,8 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Charcoal grey background */
+  --background: #1a1a1a;
+  --foreground: #ffffff;
+
+  /* Purple accent colors */
+  --primary: #a855f7;
+  --primary-hover: #9333ea;
+  --primary-light: #c084fc;
+
+  /* Card backgrounds (lighter charcoal) */
+  --card: #262626;
+  --card-hover: #2d2d2d;
+
+  /* Borders and muted text */
+  --border: #404040;
+  --muted: #737373;
+  --muted-foreground: #a3a3a3;
+
+  /* Success/Error states */
+  --success: #10b981;
+  --error: #ef4444;
 }
 
 @theme inline {
@@ -12,15 +31,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Apply purple accents globally */
+a {
+  color: var(--primary-light);
+}
+
+a:hover {
+  color: var(--primary);
 }
