@@ -1,6 +1,14 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { callClaude, extractJson, truncateForLLM, type AnthropicModel } from './anthropic';
+import {
+  callClaude,
+  extractJson,
+  truncateForLLM,
+  type AnthropicModel,
+  DEFAULT_ANTHROPIC_MODEL,
+  DEFAULT_FAST_ANTHROPIC_MODEL,
+  resolveAnthropicModelFromEnv,
+} from './anthropic';
 import { CoachingSchema, BetterQuestionsSchema, FollowupSchema } from './zod-advanced';
 import type {
   CoachingOutput,
@@ -16,9 +24,15 @@ import type {
 // ============================================================================
 
 // Use Sonnet 3.5 for coaching (quality matters) - reliable with strong JSON support
-const SONNET_MODEL: AnthropicModel = 'claude-3.5-sonnet';
+const SONNET_MODEL: AnthropicModel = resolveAnthropicModelFromEnv(
+  ['ANTHROPIC_COACH_MODEL', 'CLAUDE_COACH_MODEL', 'CLAUDE_MODEL'],
+  DEFAULT_ANTHROPIC_MODEL
+);
 // Use Haiku 3.5 for questions and emails (speed matters)
-const HAIKU_MODEL: AnthropicModel = 'claude-3.5-haiku-20241022';
+const HAIKU_MODEL: AnthropicModel = resolveAnthropicModelFromEnv(
+  ['ANTHROPIC_FAST_MODEL', 'CLAUDE_FAST_MODEL', 'CLAUDE_MODEL'],
+  DEFAULT_FAST_ANTHROPIC_MODEL
+);
 
 // Model-specific configurations
 const SONNET_CONFIG = {

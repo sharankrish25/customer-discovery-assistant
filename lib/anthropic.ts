@@ -5,6 +5,9 @@ import { withRetry } from './retry';
 
 export type AnthropicModel = `claude-${string}`;
 
+export const DEFAULT_ANTHROPIC_MODEL: AnthropicModel = 'claude-3.5-sonnet';
+export const DEFAULT_FAST_ANTHROPIC_MODEL: AnthropicModel = 'claude-3.5-haiku-20241022';
+
 export function ensureAnthropicModel(model: string, context?: string): AnthropicModel {
   if (!model.startsWith('claude-')) {
     const scope = context ? `${context}: ` : '';
@@ -14,6 +17,25 @@ export function ensureAnthropicModel(model: string, context?: string): Anthropic
   }
 
   return model as AnthropicModel;
+}
+
+export function resolveAnthropicModelFromEnv(
+  envVarNames: string | string[],
+  fallback: AnthropicModel,
+  context?: string
+): AnthropicModel {
+  const env = typeof process !== 'undefined' ? process.env : undefined;
+  if (!env) return fallback;
+
+  const names = Array.isArray(envVarNames) ? envVarNames : [envVarNames];
+  for (const name of names) {
+    const value = env[name];
+    if (value) {
+      return ensureAnthropicModel(value, context ?? name);
+    }
+  }
+
+  return fallback;
 }
 
 /**

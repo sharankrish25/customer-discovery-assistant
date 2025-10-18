@@ -1,17 +1,21 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
-import { callClaudeMultiMessage, ensureAnthropicModel, type AnthropicModel } from './anthropic';
+import {
+  callClaudeMultiMessage,
+  type AnthropicModel,
+  DEFAULT_ANTHROPIC_MODEL,
+  resolveAnthropicModelFromEnv,
+} from './anthropic';
 import { chunkTranscript } from './transcript-chunking';
 
 /**
  * Anthropic model configuration for the summary worker.
  * Defaults align with production guidance and can be overridden via env.
  */
-const DEFAULT_SUMMARY_MODEL: AnthropicModel = 'claude-3.5-sonnet';
-export const SUMMARY_MODEL: AnthropicModel = ensureAnthropicModel(
-  process.env.ANTHROPIC_SUMMARY_MODEL ?? DEFAULT_SUMMARY_MODEL,
-  'SUMMARY_MODEL'
+export const SUMMARY_MODEL: AnthropicModel = resolveAnthropicModelFromEnv(
+  ['ANTHROPIC_SUMMARY_MODEL', 'CLAUDE_MODEL'],
+  DEFAULT_ANTHROPIC_MODEL
 );
 export const SUMMARY_MAX_MODEL_TOKENS = Number(process.env.ANTHROPIC_SUMMARY_MAX_TOKENS ?? 20_000);
 export const SUMMARY_CHUNK_CHAR_LIMIT = Number(process.env.ANTHROPIC_SUMMARY_CHUNK_LIMIT ?? 18_000);
