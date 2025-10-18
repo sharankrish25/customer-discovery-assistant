@@ -1,11 +1,11 @@
-import { callClaude, truncateForLLM } from './anthropic';
+import { callClaude, truncateForLLM, type AnthropicModel } from './anthropic';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
 // Using Claude Sonnet 3.5 for speaker identification
-const MODEL = 'claude-3.5-sonnet';
+const MODEL: AnthropicModel = 'claude-3.5-sonnet';
 
 const AGENT_CONFIG = {
   maxTokens: 4096, // Longer output for annotated transcripts

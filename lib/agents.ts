@@ -1,6 +1,6 @@
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import { z } from 'zod';
-import { callClaude, truncateForLLM } from './anthropic';
+import { callClaude, truncateForLLM, type AnthropicModel } from './anthropic';
 import { parseJsonSafely } from './parseJson';
 import { clampConfidence } from './confidence';
 import { validateTranscript } from './transcript-chunking';
@@ -71,7 +71,7 @@ export type AlignmentOutput = z.infer<typeof AlignmentSchema>;
 // ============================================================================
 
 // Using Claude Sonnet 3.5 - reliable and well-tested model with strong JSON support
-const MODEL = 'claude-3.5-sonnet';
+const MODEL: AnthropicModel = 'claude-3.5-sonnet';
 
 // Model-specific configurations
 const AGENT_CONFIG = {

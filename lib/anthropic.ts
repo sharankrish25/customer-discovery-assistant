@@ -1,7 +1,20 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { withRetry } from './retry';
-import { normalizeAIError } from './errors';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
+import { normalizeAIError } from './errors';
+import { withRetry } from './retry';
+
+export type AnthropicModel = `claude-${string}`;
+
+export function ensureAnthropicModel(model: string, context?: string): AnthropicModel {
+  if (!model.startsWith('claude-')) {
+    const scope = context ? `${context}: ` : '';
+    throw new Error(
+      `${scope}Invalid Claude model "${model}". Anthropic model IDs must start with "claude-".`
+    );
+  }
+
+  return model as AnthropicModel;
+}
 
 /**
  * Truncates input text to prevent exceeding token limits.
@@ -60,6 +73,7 @@ export async function callClaude(
   user: string,
   options: ClaudeCallOptions = {}
 ): Promise<string> {
+  const resolvedModel = ensureAnthropicModel(model, 'callClaude');
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -101,7 +115,7 @@ If a field expects a string and you have nothing, return an empty string "".`;
         // Build the base request parameters
         const maxTokens = options.maxTokens ?? 4096;
         const baseParams = {
-          model,
+          model: resolvedModel,
           max_tokens: maxTokens,
           temperature: options.temperature ?? 0.2,
           system: truncatedSystem,
@@ -172,6 +186,7 @@ export async function callClaudeMultiMessage(
   messages: MessageParam[],
   options: ClaudeCallOptions = {}
 ): Promise<string> {
+  const resolvedModel = ensureAnthropicModel(model, 'callClaudeMultiMessage');
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -196,7 +211,7 @@ export async function callClaudeMultiMessage(
         // Build the base request parameters
         const maxTokens = options.maxTokens ?? 20000; // Higher for summaries by default
         const baseParams = {
-          model,
+          model: resolvedModel,
           max_tokens: maxTokens,
           temperature: options.temperature ?? 1,
           system: truncatedSystem,
