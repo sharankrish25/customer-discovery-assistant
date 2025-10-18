@@ -71,7 +71,7 @@ export type AlignmentOutput = z.infer<typeof AlignmentSchema>;
 // ============================================================================
 
 // Using Claude Sonnet 3.5 - reliable and well-tested model with strong JSON support
-const MODEL = 'claude-3-5-sonnet-latest';
+const MODEL = 'claude-3.5-sonnet';
 
 // Model-specific configurations
 const AGENT_CONFIG = {

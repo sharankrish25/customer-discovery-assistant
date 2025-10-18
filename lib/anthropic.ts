@@ -27,8 +27,8 @@ export function truncateForLLM(s: string, max = 12000): string {
  * - Extended thinking available as opt-in feature (disabled by default)
  *
  * @param model - The Claude model to use
- *   - "claude-3-5-sonnet-latest" (Sonnet 3.5) - Reliable with strong JSON support (recommended)
- *   - "claude-3-5-haiku-20241022" (Haiku 3.5) - Fast and efficient
+ *   - "claude-3.5-sonnet" (Sonnet 3.5) - Reliable with strong JSON support (recommended)
+ *   - "claude-3.5-haiku-20241022" (Haiku 3.5) - Fast and efficient
  * @param system - System prompt that sets the AI's role and behavior
  * @param user - User message with the actual task/question
  * @param options - Optional configuration

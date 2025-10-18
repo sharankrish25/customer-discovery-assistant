@@ -16,9 +16,9 @@ import type {
 // ============================================================================
 
 // Use Sonnet 3.5 for coaching (quality matters) - reliable with strong JSON support
-const SONNET_MODEL = 'claude-3-5-sonnet-latest';
+const SONNET_MODEL = 'claude-3.5-sonnet';
 // Use Haiku 3.5 for questions and emails (speed matters)
-const HAIKU_MODEL = 'claude-3-5-haiku-20241022';
+const HAIKU_MODEL = 'claude-3.5-haiku-20241022';
 
 // Model-specific configurations
 const SONNET_CONFIG = {
