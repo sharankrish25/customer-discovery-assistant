@@ -364,68 +364,79 @@ export async function analyzeSummary(
     return deriveSummaryFallback(transcript);
   }
 
-  const system = `You are a specialized customer discovery interview summarizer designed for early-stage startup founders.
+  const system = `You are a specialized customer discovery signal extractor for early-stage founders. Your job is to read the entire transcript provided (and only that transcript) and synthesize evidence-backed insights from it.
 
-Your job is to produce a concise, high-signal summary of an interview transcript so the founder can quickly understand what was actually learned — not what was "said nicely" or speculated about.
+You must derive insights by combining multiple related statements from the transcript into a single cohesive pattern — not quoting or lightly paraphrasing one-off lines.
 
-Your summary MUST focus on:
+Your output must focus exclusively on:
 
-Pain points (real struggles, friction, workarounds).
+Pain points (recurring friction or breakdowns in how they currently get something done)
 
-Needs (what they implicitly or explicitly want to exist).
+Needs (what they implicitly or explicitly want that would remove that friction)
 
-Current behaviors (what they actually do today).
+Current behaviors (what they actually do today — existing workflow, habits, tools, or workarounds)
 
-Actionable takeaways (what this means for the founder building a solution).
+Actionable takeaways (what this means for the founder building a solution)
 
-Your summary MUST avoid:
+Rules
 
-Opinions or compliments ("that sounds great").
+3–8 bullets maximum
 
-Hypotheticals or future predictions ("I would…", "I might…").
+Each bullet must reflect a real, repeated, transcript-supported pain point, needs, current behaviors, or actionable takeaway that is summarizing a set of sentences within the transcript or a single very important sentence within the transcript. DO NOT COPY THE TRANSCRIPT VERBATIM AND PUT IT AS A BULLET IN THE SUMMARY.
 
-Fluff / generic statements.
+Each insight must be synthesized from multiple parts of the transcript, not a single sentence
 
-Paraphrasing vague sentiment without concrete evidence.
+Insights must be directly grounded in what the interviewee actually does today
 
-Your target reader:
+The summary must be restricted entirely to the provided transcript — no external assumptions, no generic productivity tropes, and no template-style guessed examples
 
-A young founder learning PMF who needs signal, not noise. The summary should help them decide what to test next.
+You must NOT:
 
-Rules:
+Pull from hypothetical examples or past interview templates
 
-3–8 bullets only.
+Fill in gaps with generic startup/knowledge-work pains
 
-Each bullet must reflect evidence-backed content from the transcript.
+Use stock language like "switching between Slack, email, Google Docs" unless those tools were explicitly mentioned by the interviewee in THIS transcript
 
-Use neutral tone (no persuasion).
+Infer future wants that aren't tied to actual present-day behavior
 
-Do NOT include code fences \`\`\` in your response.`;
+Quote compliments or enthusiasm about a hypothetical solution
+
+Core Instruction
+
+You are not summarizing what was said — you are summarizing what was learned, and you must base every insight only on what is explicitly evidenced in the transcript provided by the user.
+
+No transcript = no output.
+No evidence = no insight.`;
 
   const truncatedTranscript = truncateForLLM(transcript);
   const truncatedIdea = truncateForLLM(idea, 500);
 
-  const user = `PRODUCT IDEA:
-${truncatedIdea}
-
-INTERVIEW TRANSCRIPT:
+  const user = `INTERVIEW TRANSCRIPT:
 ${truncatedTranscript}
 
+PRODUCT IDEA (for context only):
+${truncatedIdea}
+
 TASK:
-Analyze the transcript and produce a summary that helps the founder understand:
-1. What pain points were revealed (real struggles, not opinions)
-2. What needs were expressed (implicit or explicit)
-3. What current behaviors were described (what they actually do today)
-4. What actionable takeaways exist for the founder
+Read the entire transcript and synthesize 3-8 evidence-backed insights by combining multiple related statements into cohesive patterns.
+
+Each bullet must:
+- Synthesize insights from multiple parts of the transcript (not quote single sentences)
+- Focus on pain points, needs, current behaviors, or actionable takeaways
+- Be grounded in what the interviewee actually does today
+- NOT copy the transcript verbatim
+
+You must base every insight only on what is explicitly in the transcript. No external assumptions, no generic productivity tropes, no stock examples.
 
 Return JSON exactly matching this structure:
 { "summary": { "bullets": string[], "tone":"neutral", "confidence": 0..1 } }
 
 Requirements:
 - 3-8 bullets maximum
-- Each bullet must be evidence-backed from the transcript
-- Focus on signal, not noise
-- Avoid hypotheticals, opinions, or fluff
+- Each bullet synthesizes multiple transcript statements into one cohesive pattern
+- Restrict entirely to this transcript only
+- No hypotheticals, no compliments about solutions
 - Neutral, factual tone only`;
 
   try {
