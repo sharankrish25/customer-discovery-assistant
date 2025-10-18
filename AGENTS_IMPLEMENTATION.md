@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implemented 3 automatic agents (Summary, Insights, Alignment) using Anthropic's Claude 3.5 Sonnet with strict Zod validation. The agents can work with or without an API key - returning mock data when no key is present.
+Implemented 3 automatic agents (Summary, Insights, Alignment) using Anthropic's **Claude Sonnet 4.5** (the fastest and most powerful Claude model) with strict Zod validation. The agents can work with or without an API key - returning mock data when no key is present.
 
 ## Files Created
 
@@ -137,17 +137,17 @@ function runAutoAnalysis(
 ### 1. Summary Agent
 - **System**: "You are a customer discovery analyst. Produce concise, factual learnings from interview transcripts. Avoid opinions."
 - **Task**: Generate bullet points with tone and confidence
-- **Model**: Claude 3.5 Sonnet
+- **Model**: Claude Sonnet 4.5 (`claude-sonnet-4-20250514`)
 
 ### 2. Insights Agent
 - **System**: "Extract only evidence-backed pains/needs/motivations with verbatim quotes."
 - **Task**: Extract insights with quotes and evidence levels
-- **Model**: Claude 3.5 Sonnet
+- **Model**: Claude Sonnet 4.5 (`claude-sonnet-4-20250514`)
 
 ### 3. Alignment Agent
 - **System**: "Compare insights to the founder's product idea; classify how each relates."
 - **Task**: Classify as supports/contradicts/neutral with rationale
-- **Model**: Claude 3.5 Sonnet
+- **Model**: Claude Sonnet 4.5 (`claude-sonnet-4-20250514`)
 
 ## Error Handling
 

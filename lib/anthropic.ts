@@ -4,7 +4,10 @@ import Anthropic from '@anthropic-ai/sdk';
  * Helper function to call Claude API with system and user messages.
  * Returns the text content from the first response block.
  *
- * @param model - The Claude model to use (e.g., "claude-3-5-sonnet-20241022")
+ * @param model - The Claude model to use
+ *   - "claude-sonnet-4-20250514" (Sonnet 4.5) - Fastest and most powerful (recommended)
+ *   - "claude-3-5-sonnet-20241022" (Sonnet 3.5) - Previous version
+ *   - "claude-3-5-haiku-20241022" (Haiku 3.5) - Fast and efficient
  * @param system - System prompt that sets the AI's role and behavior
  * @param user - User message with the actual task/question
  * @returns The text response from Claude

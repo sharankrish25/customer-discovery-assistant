@@ -65,7 +65,8 @@ export type AlignmentOutput = z.infer<typeof AlignmentSchema>;
 // Constants
 // ============================================================================
 
-const MODEL = 'claude-3-5-sonnet-20241022';
+// Using Claude Sonnet 4.5 - the fastest and most powerful Claude model
+const MODEL = 'claude-sonnet-4-20250514';
 
 // ============================================================================
 // Mock Data (for when API key is missing)
