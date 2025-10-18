@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { interviewId } = body;
+    const { interviewId, alignment, coaching } = body;
 
     if (!interviewId || typeof interviewId !== 'string') {
       return NextResponse.json(
@@ -25,17 +25,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get interview from store
-    const interview = useStore.getState().getInterview(interviewId);
-
-    if (!interview) {
-      return NextResponse.json(
-        { ok: false, error: { code: "NOT_FOUND", message: "Interview not found" } },
-        { status: 404 }
-      );
-    }
-
-    if (!interview.alignment) {
+    if (!alignment) {
       return NextResponse.json(
         { ok: false, error: { code: "PREREQUISITE_MISSING", message: "Interview must be analyzed first (alignment required)" } },
         { status: 400 }
@@ -45,8 +35,8 @@ export async function POST(request: NextRequest) {
     try {
       // Generate better questions with retry logic built-in
       const betterQuestions = await generateQuestions(
-        interview.alignment,
-        interview.coaching || null
+        alignment,
+        coaching || null
       );
 
       // Update interview with question results

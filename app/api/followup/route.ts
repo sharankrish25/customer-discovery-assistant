@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { interviewId, desiredCommitment, chosenInsightTitle } = body;
+    const { interviewId, desiredCommitment, chosenInsightTitle, insights, customerName } = body;
 
     if (!interviewId || typeof interviewId !== 'string') {
       return NextResponse.json(
@@ -25,44 +25,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get interview from store
-    const interview = useStore.getState().getInterview(interviewId);
-
-    if (!interview) {
-      return NextResponse.json(
-        { ok: false, error: { code: "NOT_FOUND", message: "Interview not found" } },
-        { status: 404 }
-      );
-    }
-
-    if (!interview.insights) {
+    if (!insights) {
       return NextResponse.json(
         { ok: false, error: { code: "PREREQUISITE_MISSING", message: "Interview must be analyzed first (insights required)" } },
         { status: 400 }
       );
     }
 
-    // Get customer
-    const customers = useStore.getState().customers;
-    const customer = customers.find((c) => c.id === interview.customerId);
-
-    if (!customer) {
+    if (!customerName) {
       return NextResponse.json(
-        { ok: false, error: { code: "NOT_FOUND", message: "Customer not found" } },
-        { status: 404 }
+        { ok: false, error: { code: "VALIDATION_ERR", message: "customerName is required" } },
+        { status: 400 }
       );
     }
 
     // Find the chosen insight or pick the first pain
-    let chosenInsight = interview.insights.insights.find(
-      (i) => i.title === chosenInsightTitle
+    let chosenInsight = insights.insights.find(
+      (i: { title: string }) => i.title === chosenInsightTitle
     );
 
     if (!chosenInsight) {
       // Default to first pain if no specific insight chosen
       chosenInsight =
-        interview.insights.insights.find((i) => i.type === "pain") ||
-        interview.insights.insights[0];
+        insights.insights.find((i: { type: string }) => i.type === "pain") ||
+        insights.insights[0];
     }
 
     if (!chosenInsight) {
@@ -79,8 +65,8 @@ export async function POST(request: NextRequest) {
       // Generate follow-up email with retry logic built-in
       const followUpEmail = await generateEmail(
         {
-          name: customer.name,
-          role: customer.stakeholderType,
+          name: customerName,
+          role: "",
         },
         {
           title: chosenInsight.title,
