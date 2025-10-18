@@ -1,6 +1,9 @@
 /**
  * Safely extract and parse JSON from text that may contain markdown code fences
  * or other surrounding text from LLM responses.
+ *
+ * Implements aggressive extraction strategy to handle cases where LLM
+ * returns markdown headers or extra text despite being told not to.
  */
 export function parseJsonSafely(text: string): unknown {
   // Remove markdown code fences if present
@@ -12,18 +15,41 @@ export function parseJsonSafely(text: string): unknown {
     cleaned = codeBlockMatch[1].trim();
   }
 
-  // Try to find JSON object/array in the text
-  // Look for the first { or [ and match to the last } or ]
-  const jsonMatch = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-  if (jsonMatch) {
-    cleaned = jsonMatch[1];
-  }
-
+  // Try direct parse first (best case - LLM followed instructions)
   try {
     return JSON.parse(cleaned);
-  } catch (error) {
+  } catch {
+    // Fallback: extract JSON from text that may have markdown headers or extra content
+
+    // Find the first { or [ and the last matching } or ]
+    const startBrace = cleaned.indexOf('{');
+    const startBracket = cleaned.indexOf('[');
+
+    let start = -1;
+    if (startBrace >= 0 && startBracket >= 0) {
+      start = Math.min(startBrace, startBracket);
+    } else if (startBrace >= 0) {
+      start = startBrace;
+    } else if (startBracket >= 0) {
+      start = startBracket;
+    }
+
+    const endBrace = cleaned.lastIndexOf('}');
+    const endBracket = cleaned.lastIndexOf(']');
+    const end = Math.max(endBrace, endBracket);
+
+    if (start >= 0 && end > start) {
+      try {
+        const extracted = cleaned.slice(start, end + 1);
+        return JSON.parse(extracted);
+      } catch {
+        // Continue to error
+      }
+    }
+
+    // If all else fails, throw with helpful error
     throw new Error(
-      `Failed to parse JSON from response: ${error instanceof Error ? error.message : 'Unknown error'}\n\nResponse text:\n${text.substring(0, 500)}...`
+      `Failed to parse JSON from response: Could not find valid JSON object or array.\n\nResponse text (first 500 chars):\n${text.substring(0, 500)}...`
     );
   }
 }

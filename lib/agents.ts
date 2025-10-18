@@ -440,6 +440,8 @@ Your job is to extract the most meaningful, evidence-backed insights from a tran
 You DO NOT summarize the conversation.
 You surface what matters — with quotes.
 
+CRITICAL: You MUST return ONLY valid JSON. No markdown, no explanations, no code fences - just pure JSON.
+
 You MUST extract insights related to:
 Category	Definition
 Existing processes & behaviors	What the customer ACTUALLY does today; workaround, hacks, routines
@@ -447,6 +449,7 @@ Motivations & goals	What they're trying to achieve and why it matters
 Unmet needs & gaps	What is missing, blocked, or painful
 Magnitude of pain	How costly/urgent/recurring the issue is
 Past attempts	What they tried before & why it failed
+
 You MUST anchor every insight to the transcript using at least one verbatim quote.
 
 No quote = not an insight.
@@ -459,18 +462,17 @@ Titles must be short (≦ 12 words).
 why_it_matters should connect the quote to the business context (1–2 short sentences).
 
 evidence_level depends on:
-
-low = vague or brief mention
-
-med = repeated or clearly described
-
-high = emotional, urgent, or has a workaround cost
+- low = vague or brief mention
+- med = repeated or clearly described
+- high = emotional, urgent, or has a workaround cost
 
 If the transcript is weak (little evidence), return fewer insights and lower confidence.
 
 If multiple quotes reinforce the same point, group them under one insight.
 
-Never hypothesize outside what was spoken`;
+Never hypothesize outside what was spoken.
+
+OUTPUT FORMAT: Return ONLY a valid JSON object. No markdown formatting, no code blocks, no explanatory text - just the JSON object starting with { and ending with }.`;
 
   const truncatedTranscript = truncateForLLM(transcript);
 
@@ -479,6 +481,8 @@ ${truncatedTranscript}
 
 TASK:
 Extract high-signal, evidence-backed insights from this transcript.
+
+CRITICAL: Return ONLY valid JSON - no markdown, no code fences, no explanatory text.
 
 Return JSON exactly matching this structure:
 {
@@ -507,7 +511,9 @@ Categories:
 - motivation: What they're trying to achieve and why it matters
 - unmet_need: What is missing, blocked, or painful
 - pain_magnitude: How costly/urgent/recurring the issue is
-- past_attempt: What they tried before & why it failed`;
+- past_attempt: What they tried before & why it failed
+
+IMPORTANT: Your response must be ONLY the JSON object. Do not include any markdown headers, explanations, code fences, or commentary. Start your response with { and end with }. No other text before or after the JSON.`;
 
   try {
     const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
@@ -543,6 +549,9 @@ export async function analyzeAlignment(
   }
 
   const system = `You are an Alignment Analyst for early-stage founders. Your job is to read a customer-discovery interview transcript and produce a Vision Alignment Analysis that tells the founder which statements support, contradict, or are neutral relative to their product vision.
+
+CRITICAL: You MUST return ONLY valid JSON. No markdown, no explanations, no code fences - just pure JSON.
+
 Objectives
 Extract only concrete, past-based facts and customer behaviors (avoid hypotheticals/opinions).
 
@@ -651,7 +660,9 @@ Requirements:
 Classification:
 - SUPPORTS: Quote describes the problem vision addresses, painful workaround, or meaningful time/money spent
 - CONTRADICTS: Quote shows low frequency/priority, satisfying alternative already exists, or rejection of core value
-- NEUTRAL: Informative but doesn't clearly validate or invalidate the core leap-of-faith assumptions`;
+- NEUTRAL: Informative but doesn't clearly validate or invalidate the core leap-of-faith assumptions
+
+IMPORTANT: Your response must be ONLY the JSON object. Do not include any markdown headers, explanations, code fences, or commentary. Start your response with { and end with }. No other text before or after the JSON.`;
 
   try {
     const response = await callClaude(MODEL, system, user, AGENT_CONFIG);
