@@ -2,13 +2,29 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import type { CoachingOutput, BetterQuestionsOutput, FollowUpEmailOutput } from '@/types/ai';
 
 interface OptionalActionsProps {
   interviewId: string;
+  hasCoaching: boolean;
+  hasQuestions: boolean;
+  hasEmail: boolean;
+  onCoachingLoaded: (data: CoachingOutput) => void;
+  onQuestionsLoaded: (data: BetterQuestionsOutput) => void;
+  onEmailLoaded: (data: FollowUpEmailOutput) => void;
 }
 
-export function OptionalActions({ interviewId }: OptionalActionsProps) {
+export function OptionalActions({
+  interviewId,
+  hasCoaching,
+  hasQuestions,
+  hasEmail,
+  onCoachingLoaded,
+  onQuestionsLoaded,
+  onEmailLoaded,
+}: OptionalActionsProps) {
   const [loadingCoach, setLoadingCoach] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [loadingFollowup, setLoadingFollowup] = useState(false);
@@ -24,8 +40,8 @@ export function OptionalActions({ interviewId }: OptionalActionsProps) {
 
       if (!response.ok) throw new Error('Failed to generate coaching');
 
-      // API route already updates the store
-      await response.json();
+      const result = await response.json();
+      onCoachingLoaded(result.coaching);
       toast.success('Coaching analysis generated!');
     } catch (error) {
       toast.error('Failed to generate coaching analysis');
@@ -46,11 +62,11 @@ export function OptionalActions({ interviewId }: OptionalActionsProps) {
 
       if (!response.ok) throw new Error('Failed to generate questions');
 
-      // API route already updates the store
-      await response.json();
-      toast.success('Next questions generated!');
+      const result = await response.json();
+      onQuestionsLoaded(result.betterQuestions);
+      toast.success('Better questions generated!');
     } catch (error) {
-      toast.error('Failed to generate next questions');
+      toast.error('Failed to generate better questions');
       console.error(error);
     } finally {
       setLoadingQuestions(false);
@@ -68,8 +84,8 @@ export function OptionalActions({ interviewId }: OptionalActionsProps) {
 
       if (!response.ok) throw new Error('Failed to generate follow-up');
 
-      // API route already updates the store
-      await response.json();
+      const result = await response.json();
+      onEmailLoaded(result.followUpEmail);
       toast.success('Follow-up email generated!');
     } catch (error) {
       toast.error('Failed to generate follow-up email');
@@ -80,15 +96,33 @@ export function OptionalActions({ interviewId }: OptionalActionsProps) {
   };
 
   return (
-    <div className="flex gap-4">
-      <Button onClick={handleCoach} disabled={loadingCoach} variant="outline">
-        {loadingCoach ? 'Analyzing...' : 'Analyze Interview Quality'}
+    <div className="flex flex-col sm:flex-row gap-3">
+      <Button
+        onClick={handleCoach}
+        disabled={loadingCoach}
+        variant="outline"
+        className="flex-1"
+      >
+        {loadingCoach && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {hasCoaching ? 'Re-analyze' : 'Analyze'} Interview Quality
       </Button>
-      <Button onClick={handleNextQuestions} disabled={loadingQuestions} variant="outline">
-        {loadingQuestions ? 'Generating...' : 'Generate Better Questions'}
+      <Button
+        onClick={handleNextQuestions}
+        disabled={loadingQuestions}
+        variant="outline"
+        className="flex-1"
+      >
+        {loadingQuestions && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {hasQuestions ? 'Regenerate' : 'Generate'} Better Questions
       </Button>
-      <Button onClick={handleFollowup} disabled={loadingFollowup} variant="outline">
-        {loadingFollowup ? 'Generating...' : 'Generate Follow-up Email'}
+      <Button
+        onClick={handleFollowup}
+        disabled={loadingFollowup}
+        variant="outline"
+        className="flex-1"
+      >
+        {loadingFollowup && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {hasEmail ? 'Regenerate' : 'Generate'} Follow-up Email
       </Button>
     </div>
   );
