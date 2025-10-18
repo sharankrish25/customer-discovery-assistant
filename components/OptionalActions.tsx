@@ -3,17 +3,37 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+import type {
+  CoachingOutput,
+  BetterQuestionsOutput,
+  FollowUpEmailOutput,
+} from '@/types/ai';
 
 interface OptionalActionsProps {
   interviewId: string;
+  hasCoaching: boolean;
+  hasQuestions: boolean;
+  hasEmail: boolean;
+  onCoachingLoaded: (data: CoachingOutput) => void;
+  onQuestionsLoaded: (data: BetterQuestionsOutput) => void;
+  onEmailLoaded: (data: FollowUpEmailOutput) => void;
 }
 
-export function OptionalActions({ interviewId }: OptionalActionsProps) {
+export function OptionalActions({
+  interviewId,
+  hasCoaching,
+  hasQuestions,
+  hasEmail,
+  onCoachingLoaded,
+  onQuestionsLoaded,
+  onEmailLoaded,
+}: OptionalActionsProps) {
   const [loadingCoach, setLoadingCoach] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [loadingFollowup, setLoadingFollowup] = useState(false);
+  const [loadingEmail, setLoadingEmail] = useState(false);
 
-  const handleCoach = async () => {
+  const handleAnalyzeQuality = async () => {
     setLoadingCoach(true);
     try {
       const response = await fetch('/api/coach', {
@@ -22,20 +42,25 @@ export function OptionalActions({ interviewId }: OptionalActionsProps) {
         body: JSON.stringify({ interviewId }),
       });
 
-      if (!response.ok) throw new Error('Failed to generate coaching');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to analyze quality');
+      }
 
-      // API route already updates the store
-      await response.json();
+      const data = await response.json();
+      onCoachingLoaded(data.coaching);
       toast.success('Coaching analysis generated!');
     } catch (error) {
-      toast.error('Failed to generate coaching analysis');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to analyze interview quality'
+      );
       console.error(error);
     } finally {
       setLoadingCoach(false);
     }
   };
 
-  const handleNextQuestions = async () => {
+  const handleGenerateQuestions = async () => {
     setLoadingQuestions(true);
     try {
       const response = await fetch('/api/next-questions', {
@@ -44,51 +69,112 @@ export function OptionalActions({ interviewId }: OptionalActionsProps) {
         body: JSON.stringify({ interviewId }),
       });
 
-      if (!response.ok) throw new Error('Failed to generate questions');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate questions');
+      }
 
-      // API route already updates the store
-      await response.json();
-      toast.success('Next questions generated!');
+      const data = await response.json();
+      onQuestionsLoaded(data.betterQuestions);
+      toast.success('Better questions generated!');
     } catch (error) {
-      toast.error('Failed to generate next questions');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to generate questions'
+      );
       console.error(error);
     } finally {
       setLoadingQuestions(false);
     }
   };
 
-  const handleFollowup = async () => {
-    setLoadingFollowup(true);
+  const handleGenerateEmail = async (
+    desiredCommitment?: string,
+    chosenInsightTitle?: string
+  ) => {
+    setLoadingEmail(true);
     try {
       const response = await fetch('/api/followup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interviewId }),
+        body: JSON.stringify({
+          interviewId,
+          desiredCommitment,
+          chosenInsightTitle,
+        }),
       });
 
-      if (!response.ok) throw new Error('Failed to generate follow-up');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate email');
+      }
 
-      // API route already updates the store
-      await response.json();
+      const data = await response.json();
+      onEmailLoaded(data.followUpEmail);
       toast.success('Follow-up email generated!');
     } catch (error) {
-      toast.error('Failed to generate follow-up email');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to generate follow-up email'
+      );
       console.error(error);
     } finally {
-      setLoadingFollowup(false);
+      setLoadingEmail(false);
     }
   };
 
   return (
-    <div className="flex gap-4">
-      <Button onClick={handleCoach} disabled={loadingCoach} variant="outline">
-        {loadingCoach ? 'Analyzing...' : 'Analyze Interview Quality'}
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      <Button
+        onClick={handleAnalyzeQuality}
+        disabled={loadingCoach}
+        variant="outline"
+        className="flex-1 sm:flex-none"
+      >
+        {loadingCoach ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Analyzing...
+          </>
+        ) : (
+          <>
+            {hasCoaching ? 'Re-analyze' : 'Analyze'} Interview Quality
+          </>
+        )}
       </Button>
-      <Button onClick={handleNextQuestions} disabled={loadingQuestions} variant="outline">
-        {loadingQuestions ? 'Generating...' : 'Generate Better Questions'}
+
+      <Button
+        onClick={handleGenerateQuestions}
+        disabled={loadingQuestions}
+        variant="outline"
+        className="flex-1 sm:flex-none"
+      >
+        {loadingQuestions ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Generating...
+          </>
+        ) : (
+          <>
+            {hasQuestions ? 'Regenerate' : 'Generate'} Better Questions
+          </>
+        )}
       </Button>
-      <Button onClick={handleFollowup} disabled={loadingFollowup} variant="outline">
-        {loadingFollowup ? 'Generating...' : 'Generate Follow-up Email'}
+
+      <Button
+        onClick={() => handleGenerateEmail()}
+        disabled={loadingEmail}
+        variant="outline"
+        className="flex-1 sm:flex-none"
+      >
+        {loadingEmail ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Generating...
+          </>
+        ) : (
+          <>
+            {hasEmail ? 'Regenerate' : 'Generate'} Follow-up Email
+          </>
+        )}
       </Button>
     </div>
   );

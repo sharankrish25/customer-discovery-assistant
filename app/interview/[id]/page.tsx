@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useStore } from '@/lib/store';
@@ -7,18 +8,27 @@ import { Summary } from '@/components/Panels/Summary';
 import { Insights } from '@/components/Panels/Insights';
 import { Alignment } from '@/components/Panels/Alignment';
 import { OptionalActions } from '@/components/OptionalActions';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { TranscriptCoachView } from '@/components/TranscriptCoachView';
+import { BetterQuestions } from '@/components/BetterQuestions';
+import { FollowupEmail } from '@/components/FollowupEmail';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { SummaryOutput, InsightItem, AlignmentOutput } from '@/lib/types';
+import type {
+  CoachingOutput,
+  BetterQuestionsOutput,
+  FollowUpEmailOutput,
+} from '@/types/ai';
 
 export default function InterviewDetailPage() {
   const params = useParams();
   const interviewId = params.id as string;
+  const [activeTab, setActiveTab] = useState('transcript');
 
   const interviewDetailed = useStore((state) => state.getInterviewById(interviewId));
   const customer = useStore((state) =>
     interviewDetailed ? state.getCustomerById(interviewDetailed.customerId) : undefined
   );
+  const updateInterview = useStore((state) => state.updateInterview);
 
   // Convert to simplified types for UI components
   const interview = interviewDetailed
@@ -40,18 +50,6 @@ export default function InterviewDetailPage() {
               neutral: interviewDetailed.alignment.alignment.neutral.map((n) => n.rationale),
             } as AlignmentOutput)
           : null,
-        coaching: interviewDetailed.coaching
-          ? {
-              overallQuality: interviewDetailed.coaching.highlights.length > 0 ? 'needs improvement' : 'good',
-              suggestions: interviewDetailed.coaching.highlights.map((h) => h.suggestion),
-            }
-          : null,
-        nextQuestions: interviewDetailed.betterQuestions
-          ? { questions: interviewDetailed.betterQuestions.questions.map((q) => q.text) }
-          : null,
-        followup: interviewDetailed.followUpEmail
-          ? { emailBody: interviewDetailed.followUpEmail.body }
-          : null,
       }
     : null;
 
@@ -67,6 +65,39 @@ export default function InterviewDetailPage() {
       </div>
     );
   }
+
+  const handleCoachingLoaded = (data: CoachingOutput) => {
+    updateInterview(interviewId, { coaching: data });
+    setActiveTab('coaching');
+  };
+
+  const handleQuestionsLoaded = (data: BetterQuestionsOutput) => {
+    updateInterview(interviewId, { betterQuestions: data });
+    setActiveTab('questions');
+  };
+
+  const handleEmailLoaded = (data: FollowUpEmailOutput) => {
+    updateInterview(interviewId, { followUpEmail: data });
+    setActiveTab('email');
+  };
+
+  const handleEmailRegenerate = async (desiredCommitment: string) => {
+    // Call the API with the new commitment
+    try {
+      const response = await fetch('/api/followup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interviewId, desiredCommitment }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        updateInterview(interviewId, { followUpEmail: data.followUpEmail });
+      }
+    } catch (error) {
+      console.error('Failed to regenerate email:', error);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -92,7 +123,7 @@ export default function InterviewDetailPage() {
 
       {/* Analysis Panels */}
       <div className="mb-8 space-y-6">
-        <h2 className="text-2xl font-semibold">Analysis</h2>
+        <h2 className="text-2xl font-semibold">Auto-Analysis</h2>
         <div className="grid gap-6 lg:grid-cols-3">
           <Summary summary={interview.summary} />
           <Insights insights={interview.insights} />
@@ -101,75 +132,57 @@ export default function InterviewDetailPage() {
       </div>
 
       {/* Optional Actions */}
-      <div className="mb-8">
-        <h2 className="mb-4 text-2xl font-semibold">Optional Actions</h2>
-        <OptionalActions interviewId={interviewId} />
+      <div className="mb-8 space-y-4">
+        <h2 className="text-2xl font-semibold">Optional Deep Dives</h2>
+        <OptionalActions
+          interviewId={interviewId}
+          hasCoaching={!!interviewDetailed?.coaching}
+          hasQuestions={!!interviewDetailed?.betterQuestions}
+          hasEmail={!!interviewDetailed?.followUpEmail}
+          onCoachingLoaded={handleCoachingLoaded}
+          onQuestionsLoaded={handleQuestionsLoaded}
+          onEmailLoaded={handleEmailLoaded}
+        />
       </div>
 
-      {/* Optional Outputs (if generated) */}
-      {(interview.coaching || interview.nextQuestions || interview.followup) && (
-        <div className="space-y-6">
-          <h2 className="text-2xl font-semibold">Additional Insights</h2>
+      {/* Tabbed Content */}
+      <div className="mb-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="transcript">Transcript</TabsTrigger>
+            <TabsTrigger value="coaching">Coaching</TabsTrigger>
+            <TabsTrigger value="questions">Questions</TabsTrigger>
+            <TabsTrigger value="email">Follow-up</TabsTrigger>
+          </TabsList>
 
-          {interview.coaching && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Interview Quality Coaching</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <p className="mb-2 text-sm font-semibold">Overall Quality:</p>
-                    <Badge>{interview.coaching.overallQuality}</Badge>
-                  </div>
-                  <div>
-                    <p className="mb-2 text-sm font-semibold">Suggestions:</p>
-                    <ul className="list-disc space-y-1 pl-5">
-                      {interview.coaching.suggestions.map((suggestion, index) => (
-                        <li key={index} className="text-sm">
-                          {suggestion}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <TabsContent value="transcript" className="mt-6">
+            <div className="rounded-lg border bg-card p-6">
+              <h3 className="mb-4 text-lg font-semibold">Full Transcript</h3>
+              <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-muted-foreground">
+                {interview.transcript}
+              </div>
+            </div>
+          </TabsContent>
 
-          {interview.nextQuestions && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Better Questions for Next Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc space-y-2 pl-5">
-                  {interview.nextQuestions.questions.map((question, index) => (
-                    <li key={index} className="text-sm">
-                      {question}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
+          <TabsContent value="coaching" className="mt-6">
+            <TranscriptCoachView
+              transcript={interview.transcript}
+              coaching={interviewDetailed?.coaching || null}
+            />
+          </TabsContent>
 
-          {interview.followup && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Follow-up Email</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md bg-muted p-4">
-                  <pre className="whitespace-pre-wrap text-sm">
-                    {interview.followup.emailBody}
-                  </pre>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+          <TabsContent value="questions" className="mt-6">
+            <BetterQuestions data={interviewDetailed?.betterQuestions || null} />
+          </TabsContent>
+
+          <TabsContent value="email" className="mt-6">
+            <FollowupEmail
+              data={interviewDetailed?.followUpEmail || null}
+              onRegenerate={handleEmailRegenerate}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
